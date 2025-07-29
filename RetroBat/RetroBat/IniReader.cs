@@ -26,6 +26,16 @@ namespace RetroBat
             return new IniFile(path, options);
         }
 
+        public static string GetOptionValue(IniFile ini, string section, string key, string defaultValue)
+        {
+            string value = ini.GetValue(section, key);
+
+            if (!string.IsNullOrEmpty(value))
+                return value.Trim('"');
+            else
+                return defaultValue;
+        }
+
         public static string GetDefaultIniContent()
         {
             return @"; RETROBAT GLOBAL CONFIG FILE
@@ -35,12 +45,15 @@ namespace RetroBat
 ; At startup RetroBat will detect or not the language used in Windows to set automatically the same language in the frontend and RetroArch emulator.
 LanguageDetection=0
 
-; At startup RetroBat will reset the default config files options of the emulators. Values depend on the configuration index choosen.
+; At startup RetroBat will reset the default config files options of emulationstation and retrobat.ini.
 ; Use at your own risk.	
 ResetConfigMode=0
 
 ; Run automatically RetroBat at Windows startup.
 Autostart=0
+
+; Set the Start Delay for RetroBat to start automatically at startup (1000 is one second).
+AutoStartDelay=5000
 
 ; Run WiimoteGun at RetroBat's startup. You can use your wiimote as a gun and navigate through EmulationStation.
 WiimoteGun=0
@@ -67,6 +80,9 @@ VideoDuration=6500
 
 ; Start the frontend in fullscreen or in windowed mode.
 Fullscreen=1
+
+; Borderless Fullscreen
+FullscreenBorderless=0
 
 ; Force the fullscreen resolution with the parameters set at WindowXSize and WindowYSize.
 ForceFullscreenRes=0
@@ -303,7 +319,6 @@ WindowYSize=720";
 
         public override string ToString()
         {
-            ArrayList sections = new ArrayList();
             StringBuilder sb = new StringBuilder();
 
             foreach (var section in _sections)
@@ -572,7 +587,6 @@ WindowYSize=720";
         #endregion
     }
 
-
     public class IniSection
     {
         private IniFile _ini;
@@ -609,4 +623,58 @@ WindowYSize=720";
             }
         }
     }
+
+    public class RetroBatConfig
+    {
+        public bool LanguageDetection { get; set; }
+        public bool ResetConfigMode { get; set; }
+        public bool Autostart { get; set; }
+        public int AutoStartDelay { get; set; }
+        public bool WiimoteGun { get; set; }
+        public bool EnableIntro { get; set; }
+        public string FileName { get; set; }
+        public string FilePath { get; set; }
+        public bool RandomVideo { get; set; }
+        public int VideoDuration { get; set; }
+        public bool Fullscreen { get; set; }
+        public bool FullscreenBorderless { get; set; }
+        public bool ForceFullscreenRes { get; set; }
+        public bool GameListOnly { get; set; }
+        public int InterfaceMode { get; set; }
+        public int MonitorIndex { get; set; }
+        public bool NoExitMenu { get; set; }
+        public int WindowXSize { get; set; }
+        public int WindowYSize { get; set; }
+    }
+
+    /*
+"Command line arguments:"
+    "--resolution [width] [height]	try and force a particular resolution"
+    "--fullscreen-borderless"
+    "--fullscreen"
+    "--windowed"
+    "--gamelist-only			skip automatic game search, only read from gamelist.xml"
+    "--ignore-gamelist		ignore the gamelist (useful for troubleshooting)"
+    "--draw-framerate		display the framerate"
+    "--no-exit			don't show the exit option in the menu"
+    "--no-splash			don't show the splash screen"
+    "--debug				more logging, show console on Windows"				
+    "--windowed			not fullscreen, should be used with --resolution"
+    "--vsync [1/on or 0/off]		turn vsync on or off (default is on)"
+    "--max-vram [size]		Max VRAM to use in Mb before swapping. 0 for unlimited"
+    "--force-kid		Force the UI mode to be Kid"
+    "--force-kiosk		Force the UI mode to be Kiosk"
+    "--force-disable-filters		Force the UI to ignore applied filters in gamelist"
+    "--home [path]		Directory to use as home path"
+    "--videoduration"
+    "--video"
+    "--help, -h			summon a sentient, angry tuba"
+    "--monitor [index]			monitor index
+    "--screenoffset"
+    "--screenrotate"
+    "--show-hidden-files"
+    "--exit-on-reboot-required"
+    "--no-startup-game"
+    "--splash-image"
+*/
 }

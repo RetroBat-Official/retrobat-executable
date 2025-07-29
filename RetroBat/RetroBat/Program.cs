@@ -5,6 +5,12 @@ using System.Linq;
 using System.Text;
 using System.IO;
 using System.Reflection;
+using System.Globalization;
+using System.Xml;
+using Microsoft.Win32;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Windows.Forms;
 
 namespace RetroBat
 {
@@ -12,10 +18,15 @@ namespace RetroBat
     {
         static void Main()
         {
+            File.WriteAllText("RetroBat.log", string.Empty); // Clear log file at startup
             SimpleLogger.Instance.Info("--------------------------------------------------------------");
             SimpleLogger.Instance.Info("[Startup] RetroBat.exe");
 
+            CultureInfo windowsCulture = CultureInfo.CurrentUICulture;
+            SimpleLogger.Instance.Info("[INFO] Current culture: " + windowsCulture.ToString());
+
             string appFolder = Directory.GetCurrentDirectory();
+            string esPath = Path.Combine(appFolder, "emulationstation");
 
             // Ini file check and creation
             SimpleLogger.Instance.Info("[INFO] Check ini file");
@@ -30,6 +41,37 @@ namespace RetroBat
                     SimpleLogger.Instance.Info("[INFO] ini file written to " + iniPath);
                 }
                 catch { SimpleLogger.Instance.Warning("[WARNING] Impossible to create ini file."); }
+            }
+
+            // Check existence of required files
+            if (!File.Exists(Path.Combine(esPath, "emulationstation.exe")))
+            {
+                SimpleLogger.Instance.Error("[ERROR] EmulationStation cannot be found at: " + Path.Combine(esPath, "emulationstation.exe"));
+                throw new FileNotFoundException("EmulationStation executable not found.");
+            }
+
+            if (!File.Exists(Path.Combine(esPath, "emulatorlauncher.exe")))
+            {
+                SimpleLogger.Instance.Error("[ERROR] EmulatorLauncher cannot be found at: " + Path.Combine(esPath, "emulatorlauncher.exe"));
+                throw new FileNotFoundException("EmulatorLauncher executable not found.");
+            }
+
+            if (!File.Exists(Path.Combine(esPath, ".emulationstation", "es_features.cfg")))
+            {
+                SimpleLogger.Instance.Error("[ERROR] es_features cannot be found at: " + Path.Combine(esPath, ".emulationstation", "es_features.cfg"));
+                throw new FileNotFoundException("es_features not found.");
+            }
+
+            if (!File.Exists(Path.Combine(esPath, ".emulationstation", "es_systems.cfg")))
+            {
+                SimpleLogger.Instance.Error("[ERROR] es_systems cannot be found at: " + Path.Combine(esPath, ".emulationstation", "es_systems.cfg"));
+                throw new FileNotFoundException("es_systems not found.");
+            }
+
+            if (!File.Exists(Path.Combine(esPath, ".emulationstation", "emulatorLauncher.cfg")))
+            {
+                SimpleLogger.Instance.Error("[ERROR] emulatorLauncher.cfg cannot be found at: " + Path.Combine(esPath, ".emulationstation", "emulatorLauncher.cfg"));
+                throw new FileNotFoundException("emulatorLauncher.cfg not found.");
             }
 
             // Write path to registry
@@ -48,18 +90,35 @@ namespace RetroBat
             }
 
             // Get emulationstation.exe path
-            string esPath = Path.Combine(appFolder, "emulationstation");
             string emulationStationExe = Path.Combine(esPath, "emulationstation.exe");
 
             if (!File.Exists(emulationStationExe))
             {
-                SimpleLogger.Instance.Info("[ERROR] Emulationstation executable not found in: " + emulationStationExe);
+                SimpleLogger.Instance.Error("[ERROR] Emulationstation executable not found in: " + emulationStationExe);
                 return;
             }
+
+            // Language
+            if (config.LanguageDetection)
+                WriteLanguageToES(esPath, windowsCulture);
+
+            // Set RetroBat to start at startup
+            if (config.Autostart)
+                AddToStartup("RetroBat", Path.Combine(appFolder, "RetroBat.exe"));
+
+            // Reset es_settings
+            if (config.ResetConfigMode)
+                ResetESConfig(appFolder);
+
+            // Run splash video if enabled
+            if (config.EnableIntro)
+                SplashVideo.RunIntroVideo(config, esPath);
 
             // Arguments
             SimpleLogger.Instance.Info("[INFO] Setting up arguments to run EmulationStation.");
             List<string> commandArray = new List<string>();
+
+            bool borderless = config.FullscreenBorderless;
 
             if (config.Fullscreen && config.ForceFullscreenRes)
             {
@@ -74,6 +133,15 @@ namespace RetroBat
                 commandArray.Add("--resolution");
                 commandArray.Add(config.WindowXSize.ToString());
                 commandArray.Add(config.WindowYSize.ToString());
+            }
+
+            else if (borderless)
+            {
+                commandArray.Add("--fullscreen-borderless");
+            }
+            else
+            {
+                commandArray.Add("--fullscreen");
             }
 
             if (config.GameListOnly)
@@ -93,10 +161,16 @@ namespace RetroBat
             if (config.NoExitMenu)
                 commandArray.Add("--no-exit");
 
+            //commandArray.Add("--no-splash");
+
             commandArray.Add("--home");
-            commandArray.Add(esPath);
+            commandArray.Add("\"" + esPath + "\"");
 
             string args = string.Join(" ", commandArray);
+
+            // Run wiimoteGun if enabled
+            if (config.WiimoteGun)
+                RunWiimoteGun(esPath);
 
             // Run EmulationStation
             SimpleLogger.Instance.Info("[INFO] Running " + emulationStationExe + " " + args);
@@ -106,58 +180,78 @@ namespace RetroBat
                 FileName = emulationStationExe,
                 WorkingDirectory = esPath,
                 Arguments = args,
+                UseShellExecute = false
             };
 
             if (start == null)
                 return;
 
-            var exe = Process.Start(start);
+            TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
+            if (config.Autostart && !config.EnableIntro && uptime.TotalSeconds < 30)
+                System.Threading.Thread.Sleep(6000);
+
+            try
+            {
+                var exe = Process.Start(start);
+
+                if (exe != null)
+                {
+                    bool success = FocusHelper.BringProcessWindowToFrontWithRetry(exe);
+                    if (!success)
+                        SimpleLogger.Instance.Warning("Failed to bring EmulationStation window to front.");
+                    else
+                        SimpleLogger.Instance.Info("EmulationStation window is now in the foreground.");
+                    Thread.Sleep(1000);
+                }
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("[ERROR] Failed to start EmulationStation: " + ex.Message); }
         }
 
         private static RetroBatConfig GetConfigValues(IniFile ini)
         {
-            RetroBatConfig config = new RetroBatConfig();
-
-            if (int.TryParse(GetOptionValue(ini, "RetroBat", "LanguageDetection", "0"), out int result))
-                config.LanguageDetection = result;
+            RetroBatConfig config = new RetroBatConfig
+            {
+                LanguageDetection = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "LanguageDetection", "false")),
+                ResetConfigMode = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "ResetConfigMode", "false")),
+                WiimoteGun = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "WiimoteGun", "false")),
+                EnableIntro = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "EnableIntro", "true")),
+                RandomVideo = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "RandomVideo", "true")),
+                FileName = IniFile.GetOptionValue(ini, "SplashScreen", "FileName", "RetroBat-neon.mp4"),
+                FilePath = IniFile.GetOptionValue(ini, "SplashScreen", "FilePath", "default"),
+                Autostart = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "Autostart", "false")),
+                Fullscreen = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "Fullscreen", "true")),
+                FullscreenBorderless = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "FullscreenBorderless", "false")),
+                ForceFullscreenRes = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "ForceFullscreenRes", "false")),
+                GameListOnly = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "GameListOnly", "false")),
+                NoExitMenu = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "NoExitMenu", "false"))
+            };
+            
+            if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "AutoStartDelay", "5000"), out int startdelay))
+                config.AutoStartDelay = startdelay;
             else
-                config.LanguageDetection = 0;
+                config.AutoStartDelay = 5000;
 
-            config.ResetConfigMode = GetOptBoolean(GetOptionValue(ini, "RetroBat", "ResetConfigMode", "false"));
-            config.Autostart = GetOptBoolean(GetOptionValue(ini, "RetroBat", "Autostart", "false"));
-            config.WiimoteGun = GetOptBoolean(GetOptionValue(ini, "RetroBat", "WiimoteGun", "false"));
-            config.EnableIntro = GetOptBoolean(GetOptionValue(ini, "SplashScreen", "EnableIntro", "true"));
-            config.FileName = GetOptionValue(ini, "SplashScreen", "FileName", "RetroBat-neon.mp4");
-            config.FilePath = GetOptionValue(ini, "SplashScreen", "FilePath", "default");
-            config.RandomVideo = GetOptBoolean(GetOptionValue(ini, "SplashScreen", "RandomVideo", "true"));
-
-            if (int.TryParse(GetOptionValue(ini, "SplashScreen", "VideoDuration", "6500"), out int duration))
+            if (int.TryParse(IniFile.GetOptionValue(ini, "SplashScreen", "VideoDuration", "6500"), out int duration))
                 config.VideoDuration = duration;
             else
                 config.VideoDuration = 6500;
 
-            config.Fullscreen = GetOptBoolean(GetOptionValue(ini, "EmulationStation", "Fullscreen", "true"));
-            config.ForceFullscreenRes = GetOptBoolean(GetOptionValue(ini, "EmulationStation", "ForceFullscreenRes", "false"));
-            config.GameListOnly = GetOptBoolean(GetOptionValue(ini, "EmulationStation", "GameListOnly", "false"));
-
-            if (int.TryParse(GetOptionValue(ini, "EmulationStation", "InterfaceMode", "0"), out int interfaceMode))
+            if (int.TryParse(IniFile.GetOptionValue(ini, "EmulationStation", "InterfaceMode", "0"), out int interfaceMode))
                 config.InterfaceMode = interfaceMode;
             else
                 config.InterfaceMode = 0;
 
-            if (int.TryParse(GetOptionValue(ini, "EmulationStation", "MonitorIndex", "0"), out int monitorIndex))
+            if (int.TryParse(IniFile.GetOptionValue(ini, "EmulationStation", "MonitorIndex", "0"), out int monitorIndex))
                 config.MonitorIndex = monitorIndex;
             else
                 config.MonitorIndex = 0;
 
-            config.NoExitMenu = GetOptBoolean(GetOptionValue(ini, "EmulationStation", "NoExitMenu", "false"));
-
-            if (int.TryParse(GetOptionValue(ini, "EmulationStation", "WindowXSize", "1280"), out int windowX))
+            if (int.TryParse(IniFile.GetOptionValue(ini, "EmulationStation", "WindowXSize", "1280"), out int windowX))
                 config.WindowXSize = windowX;
             else
                 config.WindowXSize = 1280;
 
-            if (int.TryParse(GetOptionValue(ini, "EmulationStation", "WindowYSize", "720"), out int windowY))
+            if (int.TryParse(IniFile.GetOptionValue(ini, "EmulationStation", "WindowYSize", "720"), out int windowY))
                 config.WindowYSize = windowY;
             else
                 config.WindowYSize = 720;
@@ -173,67 +267,151 @@ namespace RetroBat
                 return false;
         }
 
-        private static string GetOptionValue(IniFile ini, string section, string key, string defaultValue)
+        private static void AddToStartup(string appName, string appPath)
         {
-            string value = ini.GetValue(section, key);
+            SimpleLogger.Instance.Info("[INFO] Setting RetroBat to launch at startup.");
 
-            if (!string.IsNullOrEmpty(value))
-                return value;
+            try
+            {
+                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
+                key.SetValue(appName, $"\"{appPath}\"");
+            }
+            catch (Exception ex)
+            {
+                SimpleLogger.Instance.Warning("[ERROR] Failed to set startup registry key: " + ex.Message);
+            }
+        }
+
+        private static void RunWiimoteGun(string esPath)
+        {
+            SimpleLogger.Instance.Info("[INFO] Running WiimoteGun.");
+
+            string wgunExe = Path.Combine(esPath, "WiimoteGun.exe");
+
+            if (!File.Exists(wgunExe))
+            {
+                SimpleLogger.Instance.Warning("[ERROR] WiimoteGun executable not found at: " + wgunExe);
+                return;
+            }
+
+            try
+            {
+                var wgStart = new ProcessStartInfo
+                {
+                    FileName = wgunExe,
+                    WorkingDirectory = esPath,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                Process.Start(wgStart);
+                SimpleLogger.Instance.Info("[INFO] WiimoteGun started successfully.");
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("[ERROR] Failed to start WiimoteGun: " + ex.Message); }
+        }
+
+        private static void ResetESConfig(string path)
+        {
+            SimpleLogger.Instance.Info("[INFO] Resetting configuration.");
+
+            List<string> filesToReset = new List<string>
+            {
+                "es_input.cfg",
+                "es_padtokey.cfg",
+                "es_settings.cfg",
+                "es_systems.cfg"
+            };
+
+            string templatepathES = Path.Combine(path, "system", "templates", "emulationstation");
+            string esPath = Path.Combine(path, "emulationstation");
+            string targetPath = Path.Combine(esPath, ".emulationstation");
+
+            foreach (var file in filesToReset)
+            {
+                string sourceFile = Path.Combine(templatepathES, file);
+                string targetFile = Path.Combine(targetPath, file);
+
+                if (File.Exists(sourceFile))
+                {
+                    try
+                    {
+                        string oldFile = targetFile + ".old";
+                        File.Delete(oldFile);
+                        File.Move(targetFile, oldFile);
+                        File.Copy(sourceFile, targetFile, true);
+                        SimpleLogger.Instance.Info($"[INFO] Reset {file} to default.");
+                    }
+                    catch (Exception ex) { SimpleLogger.Instance.Warning($"[WARNING] Could not reset {file}: " + ex.Message); }
+                }
+                else
+                    SimpleLogger.Instance.Warning($"[WARNING] Template file {sourceFile} does not exist.");
+            }
+
+            string rbIniFile = Path.Combine(path, "retrobat.ini");
+
+            try
+            {
+                if (File.Exists(rbIniFile))
+                {
+                    try { File.Delete(rbIniFile); }
+                    catch (Exception ex) { SimpleLogger.Instance.Warning("[WARNING] Could not delete RetroBat ini file: " + ex.Message); }
+
+                    SimpleLogger.Instance.Info("[INFO] Deleted RetroBat ini file: " + rbIniFile);
+                }
+
+                try
+                {
+                    string iniDefault = IniFile.GetDefaultIniContent();
+                    File.WriteAllText(rbIniFile, iniDefault);
+                    SimpleLogger.Instance.Info("[INFO] ini file regenrated with default values.");
+                }
+                catch { SimpleLogger.Instance.Warning("[WARNING] Impossible to create ini file."); }
+            }
+            catch { SimpleLogger.Instance.Warning("[WARNING] Could not reinitialize ini file."); }
+        }
+
+        private static void WriteLanguageToES(string esPath, CultureInfo culture)
+        {
+            string esSettingsPath = Path.Combine(esPath, ".emulationstation", "es_settings.cfg");
+            if (!File.Exists(esSettingsPath))
+            {
+                SimpleLogger.Instance.Error("[ERROR] es_settings.cfg cannot be found at: " + esSettingsPath);
+                throw new FileNotFoundException("es_settings.cfg not found.");
+            }
             else
-                return defaultValue;
+                SimpleLogger.Instance.Info("[INFO] es_settings.cfg path: " + esSettingsPath);
+
+            SimpleLogger.Instance.Info("[INFO] Updating EmulationStation language.");
+
+            try
+            {
+                XmlDocument xml = new XmlDocument();
+                xml.Load(esSettingsPath);
+                XmlNode languageNode = xml.SelectSingleNode("//string[@name='Language']");
+
+                if (languageNode != null && languageNode.Attributes != null)
+                {
+                    // Update existing node
+                    languageNode.Attributes["value"].Value = culture.ToString();
+                }
+                else
+                {
+                    // Create the node
+                    XmlElement newNode = xml.CreateElement("string");
+                    newNode.SetAttribute("name", "Language");
+                    newNode.SetAttribute("value", culture.ToString());
+
+                    // Append to root <config> element
+                    XmlNode configNode = xml.SelectSingleNode("/config");
+                    if (configNode != null)
+                        configNode.AppendChild(newNode);
+                    else
+                        SimpleLogger.Instance.Warning("[WARNING] Could not update EmulationStation language.");
+                }
+                xml.Save(esSettingsPath);
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("[WARNING] Could not update EmulationStation language: " + ex.Message); }
         }
     }
-
-    class RetroBatConfig
-    {
-        public int LanguageDetection { get; set; }
-        public bool ResetConfigMode { get; set; }
-        public bool Autostart { get; set; }
-        public bool WiimoteGun { get; set; }
-        public bool EnableIntro { get; set; }
-        public string FileName { get; set; }
-        public string FilePath { get; set; }
-        public bool RandomVideo { get; set; }
-        public int VideoDuration { get; set; }
-        public bool Fullscreen { get; set; }
-        public bool ForceFullscreenRes { get; set; }
-        public bool GameListOnly { get; set; }
-        public int InterfaceMode { get; set; }
-        public int MonitorIndex { get; set; }
-        public bool NoExitMenu { get; set; }
-        public int WindowXSize { get; set; }
-        public int WindowYSize { get; set; }
-    }
-
-    /*
-    "Command line arguments:"
-		"--resolution [width] [height]	try and force a particular resolution"
-        "--fullscreen-borderless"
-        "--fullscreen"
-        "--windowed"
-		"--gamelist-only			skip automatic game search, only read from gamelist.xml"
-		"--ignore-gamelist		ignore the gamelist (useful for troubleshooting)"
-		"--draw-framerate		display the framerate"
-		"--no-exit			don't show the exit option in the menu"
-		"--no-splash			don't show the splash screen"
-		"--debug				more logging, show console on Windows"				
-		"--windowed			not fullscreen, should be used with --resolution"
-		"--vsync [1/on or 0/off]		turn vsync on or off (default is on)"
-		"--max-vram [size]		Max VRAM to use in Mb before swapping. 0 for unlimited"
-		"--force-kid		Force the UI mode to be Kid"
-		"--force-kiosk		Force the UI mode to be Kiosk"
-		"--force-disable-filters		Force the UI to ignore applied filters in gamelist"
-		"--home [path]		Directory to use as home path"
-        "--videoduration"
-        "--video"
-		"--help, -h			summon a sentient, angry tuba"
-		"--monitor [index]			monitor index
-        "--screenoffset"
-        "--screenrotate"
-        "--show-hidden-files"
-        "--exit-on-reboot-required"
-        "--no-startup-game"
-        "--splash-image"
-    */
 }
 
