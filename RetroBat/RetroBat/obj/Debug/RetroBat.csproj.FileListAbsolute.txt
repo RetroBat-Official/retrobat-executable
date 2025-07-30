@@ -1,8 +1,0 @@
-C:\Users\BENOIT\Documents\GitHub\retrobat-executable\RetroBat\RetroBat\bin\Debug\RetroBat.exe
-C:\Users\BENOIT\Documents\GitHub\retrobat-executable\RetroBat\RetroBat\bin\Debug\RetroBat.pdb
-C:\Users\BENOIT\Documents\GitHub\retrobat-executable\RetroBat\RetroBat\obj\Debug\RetroBat.csproj.AssemblyReference.cache
-C:\Users\BENOIT\Documents\GitHub\retrobat-executable\RetroBat\RetroBat\obj\Debug\RetroBat.csproj.CoreCompileInputs.cache
-C:\Users\BENOIT\Documents\GitHub\retrobat-executable\RetroBat\RetroBat\obj\Debug\RetroBat.exe
-C:\RetroBat7.1\RetroBat.exe
-C:\RetroBat7.1\RetroBat.pdb
-C:\Users\BENOIT\Documents\GitHub\retrobat-executable\RetroBat\RetroBat\obj\Debug\RetroBat.pdb
