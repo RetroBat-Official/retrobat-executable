@@ -164,7 +164,11 @@ namespace RetroBat
             }
 
             if (config.GameListOnly)
+            {
                 commandArray.Add("--gamelist-only");
+            }
+            else
+                RemoveParseGamelistOnly(esPath);
 
             if (config.InterfaceMode == 2)
                 commandArray.Add("--force-kid");
@@ -435,6 +439,49 @@ namespace RetroBat
                 xml.Save(esSettingsPath);
             }
             catch (Exception ex) { SimpleLogger.Instance.Warning("Could not update EmulationStation language: " + ex.Message); }
+        }
+
+        private static void RemoveParseGamelistOnly(string esPath)
+        {
+            string esSettingsPath = Path.Combine(esPath, ".emulationstation", "es_settings.cfg");
+            if (!File.Exists(esSettingsPath))
+            {
+                SimpleLogger.Instance.Error("es_settings.cfg cannot be found at: " + esSettingsPath);
+                throw new FileNotFoundException("es_settings.cfg not found.");
+            }
+            else
+                SimpleLogger.Instance.Info("es_settings.cfg path: " + esSettingsPath);
+
+            SimpleLogger.Instance.Info("Ensuring ParseGamelistOnly is not set.");
+
+            try
+            {
+                XmlDocument xml = new XmlDocument();
+                xml.Load(esSettingsPath);
+                XmlNode parseOnly = xml.SelectSingleNode("//bool[@name='ParseGamelistOnly']");
+
+                if (parseOnly != null && parseOnly.Attributes != null)
+                {
+                    // Update existing node
+                    parseOnly.Attributes["value"].Value = "false";
+                }
+                else
+                {
+                    // Create the node
+                    XmlElement newNode = xml.CreateElement("string");
+                    newNode.SetAttribute("name", "ParseGamelistOnly");
+                    newNode.SetAttribute("value", "false");
+
+                    // Append to root <config> element
+                    XmlNode configNode = xml.SelectSingleNode("/config");
+                    if (configNode != null)
+                        configNode.AppendChild(newNode);
+                    else
+                        SimpleLogger.Instance.Warning("Could not update EmulationStation settings.ini file.");
+                }
+                xml.Save(esSettingsPath);
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Could not update EmulationStation settings.ini: " + ex.Message); }
         }
     }
 }
