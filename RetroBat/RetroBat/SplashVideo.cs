@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrayNotify;
 
 namespace RetroBat
@@ -17,6 +18,9 @@ namespace RetroBat
 
         public static void RunIntroVideo(RetroBatConfig config, string esPath)
         {
+            if (!config.EnableIntro)
+                return;
+
             SimpleLogger.Instance.Info("[INFO] Running IntroVideo.");
 
             string videoPath = Path.Combine(esPath, ".emulationstation", "video");
@@ -62,6 +66,18 @@ namespace RetroBat
 
             SimpleLogger.Instance.Info("[INFO] Video file played: " + videoPath);
 
+            var thread = new Thread(() =>
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new VideoPlayerForm(videoFile, esPath, config.VideoDuration));
+            });
+
+            thread.SetApartmentState(ApartmentState.STA); // STA is required for WPF interop
+            thread.Start();
+            /*
+            return;
+
             int videoduration = config.VideoDuration;
             SimpleLogger.Instance.Info("[INFO] Video duration set to: " + videoduration.ToString());
 
@@ -88,6 +104,7 @@ namespace RetroBat
             TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
             if (config.Autostart && uptime.TotalSeconds < 30)
                 System.Threading.Thread.Sleep(6000);
+
 
             const int VK_LBUTTON = 0x01;
             const int VK_RBUTTON = 0x02;
@@ -117,7 +134,7 @@ namespace RetroBat
 
                 var inputThread = new Thread(() =>
                 {
-                    Thread.Sleep(1500); // Wait 1.5 seconds before listening
+                    Thread.Sleep(100); // Wait 1.5 seconds before listening
 
                     while (!p.HasExited)
                     {
@@ -137,17 +154,18 @@ namespace RetroBat
 
                 inputThread.IsBackground = true;
                 inputThread.Start();
-
+                
                 // Wait for duration or exit
                 if (videoduration < 1000)
                     p.WaitForExit();
                 else
                     p.WaitForExit(videoduration + 1000);
+                
             }
             catch (Exception ex)
             {
                 SimpleLogger.Instance.Warning("[ERROR] Failed to start EmulationStation video: " + ex.Message);
-            }
+            }*/
         }
     }
 }

@@ -1,0 +1,10 @@
+**/obj/
+**/Debug/
+**/.vs/
+**/packages/
+/RetroBat/packages/
+/RetroBat/.vs/
+/RetroBat/obj/
+/RetroBat/RetroBat/obj/
+/RetroBat/RetroBat/obj/Debug/
+.suo
