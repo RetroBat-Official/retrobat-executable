@@ -34,7 +34,7 @@ namespace RetroBat
         const int SW_MINIMIZE = 6;
         const int SW_RESTORE = 9;
 
-        public static bool BringProcessWindowToFrontWithRetry(Process proc, int attempts = 2, int delayMs = 500)
+        public static bool BringProcessWindowToFrontWithRetry(Process proc, int attempts = 2, int delayMs = 800)
         {
             bool success = false;
             for (int i = 0; i < attempts; i++)
@@ -55,7 +55,7 @@ namespace RetroBat
             return success;
         }
 
-        public static bool BringProcessWindowToFront(Process proc, int maxAttempts = 5, int delayMs = 700)
+        public static bool BringProcessWindowToFront(Process proc, int maxAttempts = 5, int delayMs = 800)
         {
             if (proc == null) return false;
 

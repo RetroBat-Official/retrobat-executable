@@ -3,10 +3,8 @@
   "WorkspaceRootPath": "C:\\Users\\BENOIT\\Documents\\GitHub\\retrobat-executable\\RetroBat\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{00000000-0000-0000-0000-000000000000}|\u003CSolution\u003E|RetroBat||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{91B9692A-A528-4342-946F-C39E6227B18D}|RetroBat\\RetroBat.csproj|c:\\users\\benoit\\documents\\github\\retrobat-executable\\retrobat\\retrobat\\||{B270807C-D8C6-49EB-8EBE-8E8D566637A1}|5e9a8ac2-4f34-4521-858f-4c248ba31532"
+      "AbsoluteMoniker": "D:0:0:{91B9692A-A528-4342-946F-C39E6227B18D}|RetroBat\\RetroBat.csproj|c:\\users\\benoit\\documents\\github\\retrobat-executable\\retrobat\\retrobat\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{91B9692A-A528-4342-946F-C39E6227B18D}|RetroBat\\RetroBat.csproj|solutionrelative:retrobat\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -33,13 +31,14 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "RetroBat",
-              "DocumentMoniker": "C:\\Users\\BENOIT\\Documents\\GitHub\\retrobat-executable\\RetroBat\\RetroBat\\RetroBat.csproj",
-              "RelativeDocumentMoniker": "RetroBat\\RetroBat.csproj",
-              "ToolTip": "C:\\Users\\BENOIT\\Documents\\GitHub\\retrobat-executable\\RetroBat\\RetroBat\\RetroBat.csproj",
-              "RelativeToolTip": "RetroBat\\RetroBat.csproj",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2025-07-29T23:47:02.09Z",
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\BENOIT\\Documents\\GitHub\\retrobat-executable\\RetroBat\\RetroBat\\Program.cs",
+              "RelativeDocumentMoniker": "RetroBat\\Program.cs",
+              "ToolTip": "C:\\Users\\BENOIT\\Documents\\GitHub\\retrobat-executable\\RetroBat\\RetroBat\\Program.cs",
+              "RelativeToolTip": "RetroBat\\Program.cs",
+              "ViewState": "AgIAADUAAAAAAAAAAAAQwFUAAABzAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-30T18:14:11.88Z",
               "EditorCaption": ""
             }
           ]
