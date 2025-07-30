@@ -1,12 +1,13 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Forms.Integration;
 using System.Windows.Media;
-using System.Windows.Controls;
-using System.Diagnostics;
-using System.Linq;
-using System.Runtime.InteropServices;
 
 namespace RetroBat
 {
@@ -17,9 +18,12 @@ namespace RetroBat
         private int _duration;
         private int _ticks;
         private string _path;
+        public static volatile bool ControllerInputDetected = false;
+        private bool _gamepadKill = false;
 
-        public VideoPlayerForm(string videoPath, string path, int minDuration = -1)
+        public VideoPlayerForm(string videoPath, string path, int minDuration = -1, bool gamepadKill = false)
         {
+            _gamepadKill =gamepadKill;
             _path = System.IO.Path.Combine(path, ".emulationstation", "tmp", "emulationstation.ready");
             if (File.Exists(_path))
             {
@@ -27,7 +31,7 @@ namespace RetroBat
                 catch { }
             }
 
-             _duration = minDuration;
+            _duration = minDuration;
 
             this.BackColor = System.Drawing.Color.Black;
             this.FormBorderStyle = FormBorderStyle.None;
@@ -65,11 +69,19 @@ namespace RetroBat
             _elementHost.Child = _mediaElement;
             this.Controls.Add(_elementHost);
 
+            var inputFormThread = new Thread(() =>
+            {
+                Application.Run(new RawInputForm());
+            });
+            inputFormThread.IsBackground = true;
+            inputFormThread.SetApartmentState(ApartmentState.STA);
+            inputFormThread.Start();
+
             this.Load += (s, e) =>
             {
                 _mediaElement.Play();
 
-                _timer = new Timer() { Interval = 2 };
+                _timer = new System.Windows.Forms.Timer() { Interval = 2 };
                 _timer.Tick += OnTimer;
                 _timer.Start();
 
@@ -85,22 +97,38 @@ namespace RetroBat
                 SetActiveWindow(this.Handle);
             }
 
-            if (_duration > 0 && Environment.TickCount - _ticks < _duration)
-                return;
-
-            bool inputDetected = keysToCheck.Any(k => GetAsyncKeyState(k) < 0);
-            bool gamepadButtonPressed = false;
-
-            if (inputDetected || gamepadButtonPressed || File.Exists(_path))
+            var inputThread = new Thread(() =>
             {
-                if (_mediaElement != null)
-                    _mediaElement.Stop();
+                Thread.Sleep(200);
 
-                Close();
-            }
+                bool gamepadButtonPressed = _gamepadKill ? VideoPlayerForm.ControllerInputDetected : false;
+                bool inputDetected = keysToCheck.Any(k => GetAsyncKeyState(k) < 0);
+                bool fileTriggered = File.Exists(_path);
+
+                if (inputDetected || gamepadButtonPressed || (_duration > 0 && Environment.TickCount - _ticks >= _duration))
+                {
+                    this.BeginInvoke(new Action(() =>
+                    {
+                        if (gamepadButtonPressed)
+                            SimpleLogger.Instance.Info("Gamepad input detected, killing video process.");
+                        else if (inputDetected)
+                            SimpleLogger.Instance.Info("Keyboard or mouse input detected. Killing video process.");
+                        else if (fileTriggered)
+                            SimpleLogger.Instance.Info("File trigger detected. Killing video process.");
+                        else
+                            SimpleLogger.Instance.Info("Duration reached. Killing video process.");
+
+                        _mediaElement?.Stop();
+                        Close();
+                    }));
+                }
+            });
+
+            inputThread.IsBackground = true;
+            inputThread.Start();
         }
 
-        private Timer _timer;
+        private System.Windows.Forms.Timer _timer;
 
         protected override void Dispose(bool disposing)
         {
