@@ -23,56 +23,74 @@ namespace RetroBat
             SimpleLogger.Instance.Info("[Startup] RetroBat.exe");
 
             CultureInfo windowsCulture = CultureInfo.CurrentUICulture;
-            SimpleLogger.Instance.Info("[INFO] Current culture: " + windowsCulture.ToString());
+            SimpleLogger.Instance.Info("Current culture: " + windowsCulture.ToString());
 
             string appFolder = Directory.GetCurrentDirectory();
             string esPath = Path.Combine(appFolder, "emulationstation");
 
             // Ini file check and creation
-            SimpleLogger.Instance.Info("[INFO] Check ini file");
-            string iniPath = Path.Combine(appFolder, "retrobat.ini"); // Ensure this file is next to your executable
+            SimpleLogger.Instance.Info("Check ini file");
+            string iniPath = Path.Combine(appFolder, "retrobat.ini");
             if (!File.Exists(iniPath))
             {
-                SimpleLogger.Instance.Info("[INFO] ini file does not exist yet, creating default file.");
+                SimpleLogger.Instance.Info("ini file does not exist yet, creating default file.");
                 string iniDefault = IniFile.GetDefaultIniContent();
                 try
                 {
                     File.WriteAllText(iniPath, iniDefault);
-                    SimpleLogger.Instance.Info("[INFO] ini file written to " + iniPath);
+                    SimpleLogger.Instance.Info("ini file written to " + iniPath);
                 }
-                catch { SimpleLogger.Instance.Warning("[WARNING] Impossible to create ini file."); }
+                catch { SimpleLogger.Instance.Warning("Impossible to create ini file."); }
             }
 
             // Check existence of required files
+            SimpleLogger.Instance.Info("Checking availability of necessary files.");
+            string templatepathES = Path.Combine(appFolder, "system", "templates", "emulationstation");
+
             if (!File.Exists(Path.Combine(esPath, "emulationstation.exe")))
             {
-                SimpleLogger.Instance.Error("[ERROR] EmulationStation cannot be found at: " + Path.Combine(esPath, "emulationstation.exe"));
+                SimpleLogger.Instance.Error("EmulationStation cannot be found at: " + Path.Combine(esPath, "emulationstation.exe"));
                 throw new FileNotFoundException("EmulationStation executable not found.");
             }
 
             if (!File.Exists(Path.Combine(esPath, "emulatorlauncher.exe")))
             {
-                SimpleLogger.Instance.Error("[ERROR] EmulatorLauncher cannot be found at: " + Path.Combine(esPath, "emulatorlauncher.exe"));
+                SimpleLogger.Instance.Error("EmulatorLauncher cannot be found at: " + Path.Combine(esPath, "emulatorlauncher.exe"));
                 throw new FileNotFoundException("EmulatorLauncher executable not found.");
             }
 
             if (!File.Exists(Path.Combine(esPath, ".emulationstation", "es_features.cfg")))
             {
-                SimpleLogger.Instance.Error("[ERROR] es_features cannot be found at: " + Path.Combine(esPath, ".emulationstation", "es_features.cfg"));
+                SimpleLogger.Instance.Error("es_features cannot be found at: " + Path.Combine(esPath, ".emulationstation", "es_features.cfg"));
                 throw new FileNotFoundException("es_features not found.");
             }
 
             if (!File.Exists(Path.Combine(esPath, ".emulationstation", "es_systems.cfg")))
             {
-                SimpleLogger.Instance.Error("[ERROR] es_systems cannot be found at: " + Path.Combine(esPath, ".emulationstation", "es_systems.cfg"));
-                throw new FileNotFoundException("es_systems not found.");
+                SimpleLogger.Instance.Warning("es_systems cannot be found, trying to copy template.");
+
+                try { File.Copy(Path.Combine(templatepathES, "es_systems.cfg"), Path.Combine(esPath, ".emulationstation", "es_systems.cfg"), true); } catch { }
+
+                if (!File.Exists(Path.Combine(esPath, ".emulationstation", "es_systems.cfg")))
+                {
+                    SimpleLogger.Instance.Error("es_systems cannot be found at: " + Path.Combine(esPath, ".emulationstation", "es_systems.cfg"));
+                    throw new FileNotFoundException("es_systems not found.");
+                }
             }
 
-            if (!File.Exists(Path.Combine(esPath, ".emulationstation", "emulatorLauncher.cfg")))
+            if (!File.Exists(Path.Combine(esPath, "emulatorLauncher.cfg")))
             {
-                SimpleLogger.Instance.Error("[ERROR] emulatorLauncher.cfg cannot be found at: " + Path.Combine(esPath, ".emulationstation", "emulatorLauncher.cfg"));
-                throw new FileNotFoundException("emulatorLauncher.cfg not found.");
+                SimpleLogger.Instance.Warning("emulatorLauncher.cfg cannot be found, trying to copy template.");
+
+                try { File.Copy(Path.Combine(templatepathES, "emulatorLauncher.cfg"), Path.Combine(esPath, "emulatorLauncher.cfg"), true); } catch { }
+
+                if (!File.Exists(Path.Combine(esPath, "emulatorLauncher.cfg")))
+                {
+                    SimpleLogger.Instance.Error("emulatorLauncher.cfg cannot be found at: " + Path.Combine(esPath, "emulatorLauncher.cfg"));
+                    throw new FileNotFoundException("emulatorLauncher.cfg not found.");
+                }
             }
+            SimpleLogger.Instance.Info("All necessary files exist.");
 
             // Write path to registry
             RegistryTools.SetRegistryKey(appFolder + "\\");
@@ -82,11 +100,11 @@ namespace RetroBat
 
             using (IniFile ini = new IniFile(iniPath))
             {
-                SimpleLogger.Instance.Info("[INFO] Reading values from inifile: " + iniPath);
+                SimpleLogger.Instance.Info("Reading values from inifile: " + iniPath);
                 config = GetConfigValues(ini);
 
                 foreach (PropertyInfo prop in config.GetType().GetProperties())
-                    try { SimpleLogger.Instance.Info($"[INFO]{prop.Name} = {prop.GetValue(config, null)}"); } catch { }
+                    try { SimpleLogger.Instance.Info($"{prop.Name} = {prop.GetValue(config, null)}"); } catch { }
             }
 
             // Get emulationstation.exe path
@@ -94,9 +112,10 @@ namespace RetroBat
 
             if (!File.Exists(emulationStationExe))
             {
-                SimpleLogger.Instance.Error("[ERROR] Emulationstation executable not found in: " + emulationStationExe);
+                SimpleLogger.Instance.Error("Emulationstation executable not found in: " + emulationStationExe);
                 return;
             }
+            SimpleLogger.Instance.Info("EmulationStation.exe found.");
 
             // Language
             if (config.LanguageDetection)
@@ -115,7 +134,7 @@ namespace RetroBat
                 SplashVideo.RunIntroVideo(config, esPath);
 
             // Arguments
-            SimpleLogger.Instance.Info("[INFO] Setting up arguments to run EmulationStation.");
+            SimpleLogger.Instance.Info("Setting up arguments to run EmulationStation.");
             List<string> commandArray = new List<string>();
 
             bool borderless = config.FullscreenBorderless;
@@ -161,8 +180,6 @@ namespace RetroBat
             if (config.NoExitMenu)
                 commandArray.Add("--no-exit");
 
-            //commandArray.Add("--no-splash");
-
             commandArray.Add("--home");
             commandArray.Add("\"" + esPath + "\"");
 
@@ -173,7 +190,7 @@ namespace RetroBat
                 RunWiimoteGun(esPath);
 
             // Run EmulationStation
-            SimpleLogger.Instance.Info("[INFO] Running " + emulationStationExe + " " + args);
+            SimpleLogger.Instance.Info("Preparing to run emulationstation.");
 
             var start = new ProcessStartInfo()
             {
@@ -188,10 +205,14 @@ namespace RetroBat
 
             TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
             if (config.Autostart && !config.EnableIntro && uptime.TotalSeconds < 30)
+            {
+                SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a 6 seconds delay.");
                 System.Threading.Thread.Sleep(6000);
+            }
 
             try
             {
+                SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + args);
                 var exe = Process.Start(start);
 
                 if (exe != null)
@@ -204,7 +225,9 @@ namespace RetroBat
                     Thread.Sleep(1000);
                 }
             }
-            catch (Exception ex) { SimpleLogger.Instance.Warning("[ERROR] Failed to start EmulationStation: " + ex.Message); }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Failed to start EmulationStation: " + ex.Message); }
+
+            SimpleLogger.Instance.Info("All is good, enjoy, quitting RetroBat launcher.");
         }
 
         private static RetroBatConfig GetConfigValues(IniFile ini)
@@ -216,6 +239,7 @@ namespace RetroBat
                 WiimoteGun = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "WiimoteGun", "false")),
                 EnableIntro = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "EnableIntro", "true")),
                 RandomVideo = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "RandomVideo", "true")),
+                GamepadVideoKill = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "GamepadVideoKill", "true")),
                 FileName = IniFile.GetOptionValue(ini, "SplashScreen", "FileName", "RetroBat-neon.mp4"),
                 FilePath = IniFile.GetOptionValue(ini, "SplashScreen", "FilePath", "default"),
                 Autostart = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "Autostart", "false")),
@@ -269,7 +293,7 @@ namespace RetroBat
 
         private static void AddToStartup(string appName, string appPath)
         {
-            SimpleLogger.Instance.Info("[INFO] Setting RetroBat to launch at startup.");
+            SimpleLogger.Instance.Info("Setting RetroBat to launch at startup.");
 
             try
             {
@@ -278,19 +302,19 @@ namespace RetroBat
             }
             catch (Exception ex)
             {
-                SimpleLogger.Instance.Warning("[ERROR] Failed to set startup registry key: " + ex.Message);
+                SimpleLogger.Instance.Warning("Failed to set startup registry key: " + ex.Message);
             }
         }
 
         private static void RunWiimoteGun(string esPath)
         {
-            SimpleLogger.Instance.Info("[INFO] Running WiimoteGun.");
+            SimpleLogger.Instance.Info("Running WiimoteGun.");
 
             string wgunExe = Path.Combine(esPath, "WiimoteGun.exe");
 
             if (!File.Exists(wgunExe))
             {
-                SimpleLogger.Instance.Warning("[ERROR] WiimoteGun executable not found at: " + wgunExe);
+                SimpleLogger.Instance.Warning("WiimoteGun executable not found at: " + wgunExe);
                 return;
             }
 
@@ -305,14 +329,14 @@ namespace RetroBat
                 };
 
                 Process.Start(wgStart);
-                SimpleLogger.Instance.Info("[INFO] WiimoteGun started successfully.");
+                SimpleLogger.Instance.Info("WiimoteGun started successfully.");
             }
-            catch (Exception ex) { SimpleLogger.Instance.Warning("[ERROR] Failed to start WiimoteGun: " + ex.Message); }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Failed to start WiimoteGun: " + ex.Message); }
         }
 
         private static void ResetESConfig(string path)
         {
-            SimpleLogger.Instance.Info("[INFO] Resetting configuration.");
+            SimpleLogger.Instance.Info("Resetting configuration.");
 
             List<string> filesToReset = new List<string>
             {
@@ -339,12 +363,12 @@ namespace RetroBat
                         File.Delete(oldFile);
                         File.Move(targetFile, oldFile);
                         File.Copy(sourceFile, targetFile, true);
-                        SimpleLogger.Instance.Info($"[INFO] Reset {file} to default.");
+                        SimpleLogger.Instance.Info($"Reset {file} to default.");
                     }
-                    catch (Exception ex) { SimpleLogger.Instance.Warning($"[WARNING] Could not reset {file}: " + ex.Message); }
+                    catch (Exception ex) { SimpleLogger.Instance.Warning($"Could not reset {file}: " + ex.Message); }
                 }
                 else
-                    SimpleLogger.Instance.Warning($"[WARNING] Template file {sourceFile} does not exist.");
+                    SimpleLogger.Instance.Warning($"Template file {sourceFile} does not exist.");
             }
 
             string rbIniFile = Path.Combine(path, "retrobat.ini");
@@ -354,20 +378,20 @@ namespace RetroBat
                 if (File.Exists(rbIniFile))
                 {
                     try { File.Delete(rbIniFile); }
-                    catch (Exception ex) { SimpleLogger.Instance.Warning("[WARNING] Could not delete RetroBat ini file: " + ex.Message); }
+                    catch (Exception ex) { SimpleLogger.Instance.Warning("Could not delete RetroBat ini file: " + ex.Message); }
 
-                    SimpleLogger.Instance.Info("[INFO] Deleted RetroBat ini file: " + rbIniFile);
+                    SimpleLogger.Instance.Info("Deleted RetroBat ini file: " + rbIniFile);
                 }
 
                 try
                 {
                     string iniDefault = IniFile.GetDefaultIniContent();
                     File.WriteAllText(rbIniFile, iniDefault);
-                    SimpleLogger.Instance.Info("[INFO] ini file regenrated with default values.");
+                    SimpleLogger.Instance.Info("ini file regenrated with default values.");
                 }
-                catch { SimpleLogger.Instance.Warning("[WARNING] Impossible to create ini file."); }
+                catch { SimpleLogger.Instance.Warning("Impossible to create ini file."); }
             }
-            catch { SimpleLogger.Instance.Warning("[WARNING] Could not reinitialize ini file."); }
+            catch { SimpleLogger.Instance.Warning("Could not reinitialize ini file."); }
         }
 
         private static void WriteLanguageToES(string esPath, CultureInfo culture)
@@ -375,13 +399,13 @@ namespace RetroBat
             string esSettingsPath = Path.Combine(esPath, ".emulationstation", "es_settings.cfg");
             if (!File.Exists(esSettingsPath))
             {
-                SimpleLogger.Instance.Error("[ERROR] es_settings.cfg cannot be found at: " + esSettingsPath);
+                SimpleLogger.Instance.Error("es_settings.cfg cannot be found at: " + esSettingsPath);
                 throw new FileNotFoundException("es_settings.cfg not found.");
             }
             else
-                SimpleLogger.Instance.Info("[INFO] es_settings.cfg path: " + esSettingsPath);
+                SimpleLogger.Instance.Info("es_settings.cfg path: " + esSettingsPath);
 
-            SimpleLogger.Instance.Info("[INFO] Updating EmulationStation language.");
+            SimpleLogger.Instance.Info("Updating EmulationStation language.");
 
             try
             {
@@ -406,11 +430,11 @@ namespace RetroBat
                     if (configNode != null)
                         configNode.AppendChild(newNode);
                     else
-                        SimpleLogger.Instance.Warning("[WARNING] Could not update EmulationStation language.");
+                        SimpleLogger.Instance.Warning("Could not update EmulationStation language.");
                 }
                 xml.Save(esSettingsPath);
             }
-            catch (Exception ex) { SimpleLogger.Instance.Warning("[WARNING] Could not update EmulationStation language: " + ex.Message); }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Could not update EmulationStation language: " + ex.Message); }
         }
     }
 }
