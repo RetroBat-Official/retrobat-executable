@@ -34,7 +34,7 @@ namespace RetroBat
         const int SW_MINIMIZE = 6;
         const int SW_RESTORE = 9;
 
-        public static bool BringProcessWindowToFrontWithRetry(Process proc, int attempts = 2, int delayMs = 800)
+        public static bool BringProcessWindowToFrontWithRetry(Process proc, int attempts = 3, int delayMs = 2000)
         {
             bool success = false;
             for (int i = 0; i < attempts; i++)
@@ -46,16 +46,16 @@ namespace RetroBat
                     SimpleLogger.Instance.Warning($"Failed to bring EmulationStation window to front (attempt #{i + 1}).");
 
                 if (success && i == attempts - 1)
-                    break;  // last attempt, success done
+                    break;
                 else if (!success && i == attempts - 1)
-                    break;  // last attempt, no success, stop
+                    break;
 
                 Thread.Sleep(delayMs);
             }
             return success;
         }
 
-        public static bool BringProcessWindowToFront(Process proc, int maxAttempts = 5, int delayMs = 800)
+        public static bool BringProcessWindowToFront(Process proc, int maxAttempts = 5, int delayMs = 1000)
         {
             if (proc == null) return false;
 
