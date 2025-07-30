@@ -6,7 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrayNotify;
+using System.Windows.Forms;
 
 namespace RetroBat
 {
@@ -14,10 +14,12 @@ namespace RetroBat
     {
         [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
+        public static volatile bool ControllerInputDetected = false;
+
 
         public static void RunIntroVideo(RetroBatConfig config, string esPath)
         {
-            SimpleLogger.Instance.Info("[INFO] Running IntroVideo.");
+            SimpleLogger.Instance.Info("Running IntroVideo.");
 
             string videoPath = Path.Combine(esPath, ".emulationstation", "video");
 
@@ -25,14 +27,14 @@ namespace RetroBat
             {
                 string customVideoPath = config.FilePath;
                 if (!Directory.Exists(customVideoPath))
-                    SimpleLogger.Instance.Warning("[WARNING] Custom video path does not exist: " + customVideoPath);
+                    SimpleLogger.Instance.Warning("Custom video path does not exist: " + customVideoPath);
                 else
                     videoPath = customVideoPath;
             }
 
             if (!Directory.Exists(videoPath))
             {
-                SimpleLogger.Instance.Warning("[WARNING] Video directory does not exist: " + videoPath);
+                SimpleLogger.Instance.Warning("Video directory does not exist: " + videoPath);
                 return;
             }
 
@@ -40,7 +42,7 @@ namespace RetroBat
 
             if (videoFiles.Length == 0)
             {
-                SimpleLogger.Instance.Warning("[WARNING] No video files found in: " + videoPath);
+                SimpleLogger.Instance.Warning("No video files found in: " + videoPath);
                 return;
             }
 
@@ -48,7 +50,7 @@ namespace RetroBat
 
             if (config.RandomVideo)
             {
-                SimpleLogger.Instance.Info("[INFO] Getting random video file from: " + videoPath);
+                SimpleLogger.Instance.Info("Getting random video file from: " + videoPath);
                 Random rand = new Random();
                 int index = rand.Next(videoFiles.Length);
                 videoFile = videoFiles[index];
@@ -56,14 +58,14 @@ namespace RetroBat
 
             if (!File.Exists(videoFile))
             {
-                SimpleLogger.Instance.Warning("[WARNING] Video file does not exist: " + videoFile);
+                SimpleLogger.Instance.Warning("Video file does not exist: " + videoFile);
                 return;
             }
 
-            SimpleLogger.Instance.Info("[INFO] Video file played: " + videoPath);
+            SimpleLogger.Instance.Info("Video file played: " + videoPath);
 
             int videoduration = config.VideoDuration;
-            SimpleLogger.Instance.Info("[INFO] Video duration set to: " + videoduration.ToString());
+            SimpleLogger.Instance.Info("Video duration set to: " + videoduration.ToString());
 
             List<string> commandArray = new List<string>
             {
@@ -87,7 +89,10 @@ namespace RetroBat
 
             TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
             if (config.Autostart && uptime.TotalSeconds < 30)
+            {
+                SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a 6 seconds delay.");
                 System.Threading.Thread.Sleep(6000);
+            }
 
             const int VK_LBUTTON = 0x01;
             const int VK_RBUTTON = 0x02;
@@ -107,11 +112,19 @@ namespace RetroBat
 
             try
             {
+                var inputFormThread = new Thread(() =>
+                {
+                    Application.Run(new RawInputForm());
+                });
+                inputFormThread.IsBackground = true;
+                inputFormThread.SetApartmentState(ApartmentState.STA);
+                inputFormThread.Start();
+
                 var p = Process.Start(start);
 
                 if (p == null)
                 {
-                    SimpleLogger.Instance.Warning("[ERROR] Process failed to start.");
+                    SimpleLogger.Instance.Warning("Process failed to start.");
                     return;
                 }
 
@@ -122,11 +135,15 @@ namespace RetroBat
                     while (!p.HasExited)
                     {
                         bool inputDetected = keysToCheck.Any(k => GetAsyncKeyState(k) < 0);
-                        bool gamepadButtonPressed = false;
+                        bool gamepadButtonPressed = config.GamepadVideoKill ? SplashVideo.ControllerInputDetected : false;
 
                         if (inputDetected || gamepadButtonPressed)
                         {
-                            SimpleLogger.Instance.Info("[INFO] Input detected. Killing video process.");
+                            if (gamepadButtonPressed)
+                                SimpleLogger.Instance.Info("Gamepad input detected, killing video process.");
+                            else
+                                SimpleLogger.Instance.Info("Keyboard or mouse input detected. Killing video process.");
+                            
                             try { p.Kill(); } catch { }
                             break;
                         }
@@ -146,7 +163,7 @@ namespace RetroBat
             }
             catch (Exception ex)
             {
-                SimpleLogger.Instance.Warning("[ERROR] Failed to start EmulationStation video: " + ex.Message);
+                SimpleLogger.Instance.Warning("Failed to start EmulationStation video: " + ex.Message);
             }
         }
     }
