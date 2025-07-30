@@ -7,18 +7,17 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrayNotify;
 
 namespace RetroBat
 {
     internal class SplashVideo
     {
-        [DllImport("user32.dll")]
-        private static extern short GetAsyncKeyState(int vKey);
-        public static volatile bool ControllerInputDetected = false;
-
-
         public static void RunIntroVideo(RetroBatConfig config, string esPath)
         {
+            if (!config.EnableIntro)
+                return;
+
             SimpleLogger.Instance.Info("Running IntroVideo.");
 
             string videoPath = Path.Combine(esPath, ".emulationstation", "video");
@@ -64,6 +63,17 @@ namespace RetroBat
 
             SimpleLogger.Instance.Info("Video file played: " + videoPath);
 
+            var thread = new Thread(() =>
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new VideoPlayerForm(videoFile, esPath, config.VideoDuration));
+            });
+
+            thread.SetApartmentState(ApartmentState.STA); // STA is required for WPF interop
+            thread.Start();
+
+            /*
             int videoduration = config.VideoDuration;
             SimpleLogger.Instance.Info("Video duration set to: " + videoduration.ToString());
 
@@ -94,22 +104,6 @@ namespace RetroBat
                 System.Threading.Thread.Sleep(6000);
             }
 
-            const int VK_LBUTTON = 0x01;
-            const int VK_RBUTTON = 0x02;
-            const int VK_SPACE = 0x20;
-            const int VK_ESCAPE = 0x1B;
-            const int VK_ENTER = 0x0D;
-            const int VK_UP = 0x26;
-            const int VK_DOWN = 0x28;
-            const int VK_LEFT = 0x25;
-            const int VK_RIGHT = 0x27;
-            const int VK_W = 0x57;
-            const int VK_A = 0x41;
-            const int VK_S = 0x53;
-            const int VK_D = 0x44;
-
-            int[] keysToCheck = new int[] { VK_LBUTTON, VK_RBUTTON, VK_SPACE, VK_ESCAPE, VK_ENTER, VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, VK_W, VK_A, VK_S, VK_D };
-
             try
             {
                 var inputFormThread = new Thread(() =>
@@ -130,7 +124,7 @@ namespace RetroBat
 
                 var inputThread = new Thread(() =>
                 {
-                    Thread.Sleep(1500); // Wait 1.5 seconds before listening
+                    Thread.Sleep(200);
 
                     while (!p.HasExited)
                     {
@@ -164,7 +158,7 @@ namespace RetroBat
             catch (Exception ex)
             {
                 SimpleLogger.Instance.Warning("Failed to start EmulationStation video: " + ex.Message);
-            }
+            }*/
         }
     }
 }

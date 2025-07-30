@@ -48,7 +48,7 @@ class RawInputForm : Form
         this.Location = new System.Drawing.Point(-32000, -32000);  // Offscreen
     }
 
-    protected override void WndProc(ref Message m)
+    /*protected override void WndProc(ref Message m)
     {
         if (m.Msg == WM_INPUT)
         {
@@ -104,7 +104,7 @@ class RawInputForm : Form
             }
         }
         base.WndProc(ref m);
-    }
+    }*/
 
     // Structures
 
