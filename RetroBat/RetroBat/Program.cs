@@ -217,8 +217,8 @@ namespace RetroBat
                 SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + args);
 
                 var exe = Process.Start(start);
-                exe.WaitForExit();
-                /*
+                /*exe.WaitForExit();
+                
                 if (exe != null)
                 {
                     bool success = FocusHelper.BringProcessWindowToFrontWithRetry(exe);
