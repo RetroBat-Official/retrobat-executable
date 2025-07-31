@@ -1,23 +1,32 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.IO;
-using System.Reflection;
 using System.Globalization;
-using System.Xml;
-using Microsoft.Win32;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace RetroBat
 {
     class Program
     {
+        [STAThread]
         static void Main()
         {
+            string exeName = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName);
+            if (!exeName.Equals("RetroBat.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("Executable name has been changed!", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Environment.Exit(1);
+            }
+
             File.WriteAllText("RetroBat.log", string.Empty); // Clear log file at startup
             SimpleLogger.Instance.Info("--------------------------------------------------------------");
             SimpleLogger.Instance.Info("[Startup] RetroBat.exe");
@@ -25,7 +34,7 @@ namespace RetroBat
             CultureInfo windowsCulture = CultureInfo.CurrentUICulture;
             SimpleLogger.Instance.Info("Current culture: " + windowsCulture.ToString());
 
-            string appFolder = Directory.GetCurrentDirectory();
+            string appFolder = AppDomain.CurrentDomain.BaseDirectory;
             string esPath = Path.Combine(appFolder, "emulationstation");
 
             // Ini file check and creation
@@ -131,7 +140,11 @@ namespace RetroBat
 
             // Run splash video if enabled
             if (config.EnableIntro)
+            {
                 SplashVideo.RunIntroVideo(config, esPath);
+                if (!config.FullscreenBorderless)
+                    Thread.Sleep(config.VideoDelay);
+            }
 
             // Arguments
             SimpleLogger.Instance.Info("Setting up arguments to run EmulationStation.");
@@ -146,7 +159,7 @@ namespace RetroBat
                 commandArray.Add(config.WindowYSize.ToString());
             }
 
-            else if (!config.Fullscreen)
+            else if (!config.Fullscreen && !borderless)
             {
                 commandArray.Add("--windowed");
                 commandArray.Add("--resolution");
@@ -245,11 +258,11 @@ namespace RetroBat
                 RandomVideo = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "RandomVideo", "true")),
                 GamepadVideoKill = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "GamepadVideoKill", "true")),
                 KillVideoWhenESReady = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "KillVideoWhenESReady", "false")),
-                FileName = IniFile.GetOptionValue(ini, "SplashScreen", "FileName", "RetroBat-neon.mp4"),
+                FileName = IniFile.GetOptionValue(ini, "SplashScreen", "FileName", "retrobat-neon.mp4"),
                 FilePath = IniFile.GetOptionValue(ini, "SplashScreen", "FilePath", "default"),
                 Autostart = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "Autostart", "false")),
                 Fullscreen = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "Fullscreen", "true")),
-                FullscreenBorderless = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "FullscreenBorderless", "false")),
+                FullscreenBorderless = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "FullscreenBorderless", "true")),
                 ForceFullscreenRes = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "ForceFullscreenRes", "false")),
                 GameListOnly = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "GameListOnly", "false")),
                 NoExitMenu = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "NoExitMenu", "false"))
@@ -259,6 +272,11 @@ namespace RetroBat
                 config.AutoStartDelay = startdelay;
             else
                 config.AutoStartDelay = 5000;
+
+            if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "VideoDelay", "5000"), out int VideoDelay))
+                config.VideoDelay = startdelay;
+            else
+                config.VideoDelay = 1000;
 
             if (int.TryParse(IniFile.GetOptionValue(ini, "EmulationStation", "InterfaceMode", "0"), out int interfaceMode))
                 config.InterfaceMode = interfaceMode;

@@ -7,4 +7,5 @@
 /RetroBat/obj/
 /RetroBat/RetroBat/obj/
 /RetroBat/RetroBat/obj/Debug/
+/RetroBat/RetroBat/*.csproj.user
 *.suo

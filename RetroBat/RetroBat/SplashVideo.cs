@@ -18,7 +18,7 @@ namespace RetroBat
             if (!config.EnableIntro)
                 return;
 
-            SimpleLogger.Instance.Info("Running IntroVideo.");
+            SimpleLogger.Instance.Info("Trying to run Intro Video.");
 
             string videoPath = Path.Combine(esPath, ".emulationstation", "video");
 
@@ -61,7 +61,7 @@ namespace RetroBat
                 return;
             }
 
-            SimpleLogger.Instance.Info("Video file played: " + videoPath);
+            SimpleLogger.Instance.Info("Video file to play: " + videoFile);
 
             var thread = new Thread(() =>
             {

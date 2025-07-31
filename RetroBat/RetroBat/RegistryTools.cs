@@ -10,7 +10,7 @@ namespace RetroBat
     {
         public static void SetRegistryKey(string appFolder)
         {
-            SimpleLogger.Instance.Info("[INFO] Writing values to registry.");
+            SimpleLogger.Instance.Info("Writing values to registry.");
 
             string registryPath = @"SOFTWARE\RetroBat";
             string ftpPath = "InstallRootUrl";
