@@ -165,6 +165,8 @@ namespace RetroBat
 
             if (config.GameListOnly)
                 commandArray.Add("--gamelist-only");
+            else
+                RemoveParseGamelistOnly(esPath);
 
             if (config.InterfaceMode == 2)
                 commandArray.Add("--force-kid");
@@ -213,8 +215,10 @@ namespace RetroBat
             try
             {
                 SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + args);
-                var exe = Process.Start(start);
 
+                var exe = Process.Start(start);
+                /*exe.WaitForExit();
+                
                 if (exe != null)
                 {
                     bool success = FocusHelper.BringProcessWindowToFrontWithRetry(exe);
@@ -223,7 +227,7 @@ namespace RetroBat
                     else
                         SimpleLogger.Instance.Info("EmulationStation window is now in the foreground.");
                     Thread.Sleep(1000);
-                }
+                }*/
             }
             catch (Exception ex) { SimpleLogger.Instance.Warning("Failed to start EmulationStation: " + ex.Message); }
 
@@ -240,6 +244,7 @@ namespace RetroBat
                 EnableIntro = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "EnableIntro", "true")),
                 RandomVideo = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "RandomVideo", "true")),
                 GamepadVideoKill = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "GamepadVideoKill", "true")),
+                KillVideoWhenESReady = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "KillVideoWhenESReady", "false")),
                 FileName = IniFile.GetOptionValue(ini, "SplashScreen", "FileName", "RetroBat-neon.mp4"),
                 FilePath = IniFile.GetOptionValue(ini, "SplashScreen", "FilePath", "default"),
                 Autostart = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "Autostart", "false")),
@@ -254,11 +259,6 @@ namespace RetroBat
                 config.AutoStartDelay = startdelay;
             else
                 config.AutoStartDelay = 5000;
-
-            if (int.TryParse(IniFile.GetOptionValue(ini, "SplashScreen", "VideoDuration", "6500"), out int duration))
-                config.VideoDuration = duration;
-            else
-                config.VideoDuration = 6500;
 
             if (int.TryParse(IniFile.GetOptionValue(ini, "EmulationStation", "InterfaceMode", "0"), out int interfaceMode))
                 config.InterfaceMode = interfaceMode;
@@ -435,6 +435,49 @@ namespace RetroBat
                 xml.Save(esSettingsPath);
             }
             catch (Exception ex) { SimpleLogger.Instance.Warning("Could not update EmulationStation language: " + ex.Message); }
+        }
+
+        private static void RemoveParseGamelistOnly(string esPath)
+        {
+            string esSettingsPath = Path.Combine(esPath, ".emulationstation", "es_settings.cfg");
+            if (!File.Exists(esSettingsPath))
+            {
+                SimpleLogger.Instance.Error("es_settings.cfg cannot be found at: " + esSettingsPath);
+                throw new FileNotFoundException("es_settings.cfg not found.");
+            }
+            else
+                SimpleLogger.Instance.Info("es_settings.cfg path: " + esSettingsPath);
+
+            SimpleLogger.Instance.Info("Ensuring ParseGamelistOnly is not set.");
+
+            try
+            {
+                XmlDocument xml = new XmlDocument();
+                xml.Load(esSettingsPath);
+                XmlNode parseOnly = xml.SelectSingleNode("//bool[@name='ParseGamelistOnly']");
+
+                if (parseOnly != null && parseOnly.Attributes != null)
+                {
+                    // Update existing node
+                    parseOnly.Attributes["value"].Value = "false";
+                }
+                else
+                {
+                    // Create the node
+                    XmlElement newNode = xml.CreateElement("string");
+                    newNode.SetAttribute("name", "ParseGamelistOnly");
+                    newNode.SetAttribute("value", "false");
+
+                    // Append to root <config> element
+                    XmlNode configNode = xml.SelectSingleNode("/config");
+                    if (configNode != null)
+                        configNode.AppendChild(newNode);
+                    else
+                        SimpleLogger.Instance.Warning("Could not update EmulationStation settings.ini file.");
+                }
+                xml.Save(esSettingsPath);
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Could not update EmulationStation settings.ini: " + ex.Message); }
         }
     }
 }

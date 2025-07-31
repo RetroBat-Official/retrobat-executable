@@ -73,8 +73,8 @@ FilePath=""default""
 ; Play video files randomly when RetroBat starts.
 RandomVideo=1
 
-; Set the video duration in milliseconds. The value must be less or equal to real duration of the video to be played. 
-VideoDuration=6500
+; Set this to stop when video automatically when the interface has loaded
+KillVideoWhenESReady=0
 
 ; Allow killing intro video with Gamepad press (this can trigger false positive with joystick drift)
 GamepadVideoKill=1
@@ -638,7 +638,7 @@ WindowYSize=720";
         public string FileName { get; set; }
         public string FilePath { get; set; }
         public bool RandomVideo { get; set; }
-        public int VideoDuration { get; set; }
+        public bool KillVideoWhenESReady { get; set; }
         public bool GamepadVideoKill { get; set; }
         public bool Fullscreen { get; set; }
         public bool FullscreenBorderless { get; set; }

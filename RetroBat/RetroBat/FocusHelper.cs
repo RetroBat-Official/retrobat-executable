@@ -39,11 +39,21 @@ namespace RetroBat
             bool success = false;
             for (int i = 0; i < attempts; i++)
             {
-                success = BringProcessWindowToFront(proc);
-                if (success)
-                    SimpleLogger.Instance.Info($"EmulationStation window is now in the foreground (attempt #{i + 1}).");
-                else
+                try
+                {
+                    success = BringProcessWindowToFront(proc);
+                    if (success)
+                    {
+                        SimpleLogger.Instance.Info($"EmulationStation window is now in the foreground (attempt #{i + 1}).");
+                        break;
+                    }
+                    else
+                        SimpleLogger.Instance.Warning($"Failed to bring EmulationStation window to front (attempt #{i + 1}).");
+                }
+                catch 
+                {
                     SimpleLogger.Instance.Warning($"Failed to bring EmulationStation window to front (attempt #{i + 1}).");
+                }
 
                 if (success && i == attempts - 1)
                     break;  // last attempt, success done
@@ -69,7 +79,13 @@ namespace RetroBat
 
             for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                // Optionally minimize and restore to force attention
+                IntPtr foregroundWnd = GetForegroundWindow();
+                if (foregroundWnd == hWnd)
+                {
+                    SimpleLogger.Instance.Info("Window is already in the foreground.");
+                    return true;
+                }
+
                 if (attempt == 1)
                 {
                     ShowWindow(hWnd, SW_RESTORE);
