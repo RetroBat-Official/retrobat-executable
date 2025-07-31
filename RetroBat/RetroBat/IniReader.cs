@@ -64,7 +64,7 @@ WiimoteGun=0
 EnableIntro=1
 
 ; The name of the video file to play. RandomVideo must be set on 0 to take effect.
-FileName=""RetroBat-neon.mp4""
+FileName=""retrobat-neon.mp4""
 
 ; If ""default"" is set, RetroBat will use the default video path where video files are stored.
 ; Enter a full path to use a custom directory for video files.
@@ -72,6 +72,10 @@ FilePath=""default""
 
 ; Play video files randomly when RetroBat starts.
 RandomVideo=1
+
+; Set the delay between the start of the video and the start of the interface.
+; Setting a longer delay can help if the video is not displayed in the foreground
+VideoDelay=1000
 
 ; Set this to stop when video automatically when the interface has loaded
 KillVideoWhenESReady=0
@@ -85,7 +89,7 @@ GamepadVideoKill=1
 Fullscreen=1
 
 ; Borderless Fullscreen
-FullscreenBorderless=0
+FullscreenBorderless=1
 
 ; Force the fullscreen resolution with the parameters set at WindowXSize and WindowYSize.
 ForceFullscreenRes=0
@@ -638,6 +642,7 @@ WindowYSize=720";
         public string FileName { get; set; }
         public string FilePath { get; set; }
         public bool RandomVideo { get; set; }
+        public int VideoDelay { get; set; }
         public bool KillVideoWhenESReady { get; set; }
         public bool GamepadVideoKill { get; set; }
         public bool Fullscreen { get; set; }

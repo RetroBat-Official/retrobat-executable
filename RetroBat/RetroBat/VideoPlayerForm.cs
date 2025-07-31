@@ -18,6 +18,7 @@ namespace RetroBat
 
         private bool _gamepadKill;
         private bool _letVideoRun;
+        public bool _mediaEnded = false;
 
         public VideoPlayerForm(string videoPath, string path, bool gamepadKill = false, bool killVideoWhenESReady = false)
         {
@@ -59,34 +60,73 @@ namespace RetroBat
             };
 
             _mediaElement.Focusable = false;
-            _mediaElement.MediaOpened += (s, e) => this.Opacity = 1;
-            _mediaElement.MediaEnded += (s, e) => { _timer.Stop(); this.Close(); };
-            _mediaElement.MediaFailed += (s, e) => { _timer.Stop(); this.Close(); };
+            
+            _mediaElement.MediaOpened += (s, e) =>
+            {
+                SimpleLogger.Instance.Info("Media opened.");
+                this.Opacity = 1;
+                this.TopMost = true;
+                this.Activate();
+                this.BringToFront();
+            };
+
+            _mediaElement.MediaEnded += (s, e) => 
+            {
+                SimpleLogger.Instance.Info("Media Ended.");
+                _mediaEnded = true;
+                _timer.Stop();
+                this.Close();
+            };
+
+            _mediaElement.MediaFailed += (s, e) =>
+            {
+                SimpleLogger.Instance.Warning($"Media failed: {e.ErrorException?.Message}");
+                _timer.Stop();
+                this.Close();
+            };
 
             _elementHost.Child = _mediaElement;
             this.Controls.Add(_elementHost);
                      
             this.Load += (s, e) =>
             {
-                _mediaElement.Play();
+                try
+                {
+                    System.Threading.Thread.Sleep(100);
+                    _mediaElement.Play();
+                    SimpleLogger.Instance.Info("Video started.");
+                    this.TopMost = true;
+                    this.Activate();
+                    this.BringToFront();
+                    _timer = new System.Windows.Forms.Timer() { Interval = 2 };
+                    _timer.Tick += OnTimer;
+                    _timer.Start();
+                }
+                catch (Exception ex) { SimpleLogger.Instance.Warning("MediaElement failed to launch" + ex); }
+            };
 
-                _timer = new System.Windows.Forms.Timer() { Interval = 2 };
-                _timer.Tick += OnTimer;
-                _timer.Start();
-
-                //_ticks = Environment.TickCount;
+            this.Shown += (s, e) =>
+            {
+                this.TopMost = false;
+                this.TopMost = true;
+                this.BringToFront();
             };
         }
-
-        private RawInputForm _rawInput;
 
         private void OnTimer(object sender, EventArgs e)
         {
             if (this.IsHandleCreated && this.Handle != GetForegroundWindow())
             {
+                this.TopMost = false;
+                this.TopMost = true;
+                this.BringToFront();
                 SetForegroundWindow(this.Handle);
                 SetActiveWindow(this.Handle);
             }
+
+            this.TopMost = false;
+            this.TopMost = true;
+            this.BringToFront();
 
             bool gamepadButtonPressed = _gamepadKill && RawInputDetected;
             bool inputDetected = keysToCheck.Any(k => GetAsyncKeyState(k) < 0);
@@ -94,20 +134,21 @@ namespace RetroBat
 
             if (inputDetected || gamepadButtonPressed || fileTriggered)
             {
-                this.BeginInvoke(new Action(() =>
+                if (gamepadButtonPressed)
+                    SimpleLogger.Instance.Info("Gamepad input detected, killing video process.");
+                else if (inputDetected)
+                    SimpleLogger.Instance.Info("Keyboard or mouse input detected. Killing video process.");
+                else if (fileTriggered)
                 {
-                    if (gamepadButtonPressed)
-                        SimpleLogger.Instance.Info("Gamepad input detected, killing video process.");
-                    else if (inputDetected)
-                        SimpleLogger.Instance.Info("Keyboard or mouse input detected. Killing video process.");
-                    else if (fileTriggered)
-                        SimpleLogger.Instance.Info("File trigger detected. Killing video process.");
-                    else
-                        SimpleLogger.Instance.Info("Duration reached. Killing video process.");
+                    SimpleLogger.Instance.Info("EmulationStation ready. Killing video process.");
+                    System.Threading.Thread.Sleep(200);
+                }
 
-                    _mediaElement?.Stop();
-                    Close();
-                }));
+                _timer?.Dispose();
+                _timer = null;
+                _mediaElement?.Stop();
+                SimpleLogger.Instance.Info("Video stopped.");
+                Close();
             }
         }
 
@@ -115,9 +156,6 @@ namespace RetroBat
 
         protected override void Dispose(bool disposing)
         {
-            _rawInput?.Dispose();
-            _rawInput = null;
-
             _timer?.Dispose();
             _timer = null;
 
@@ -140,6 +178,9 @@ namespace RetroBat
 
         [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
+
+        [DllImport("user32.dll")]
+        static extern bool AllowSetForegroundWindow(int dwProcessId);
 
         const int VK_LBUTTON = 0x01;
         const int VK_RBUTTON = 0x02;

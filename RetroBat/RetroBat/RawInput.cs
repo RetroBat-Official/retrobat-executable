@@ -1,8 +1,9 @@
 ﻿using RetroBat;
 using System;
+using System.Drawing;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using System.Drawing;
 
 namespace RetroBat
 {
@@ -58,21 +59,8 @@ namespace RetroBat
                                 byte[] rawData = new byte[rawDataLength];
                                 Marshal.Copy(pRawData, rawData, 0, rawDataLength);
 
-                                string rawDataStr = "Raw HID data bytes: ";
-                                for (int i = 0; i < Math.Min(16, rawDataLength); i++)
-                                    rawDataStr += $"{rawData[i]:X2} ";
 
-                                bool gamepadButtonPressed = false;
-                                for (int i = 0; i < rawDataLength; i++)
-                                {
-                                    if (rawData[i] != 0)
-                                    {
-                                        gamepadButtonPressed = true;
-                                        break;
-                                    }
-                                }
-
-                                if (gamepadButtonPressed)
+                                if (rawData.Any(r => r >= 1 && r <= 64))
                                     RawInputDetected = true;
                             }
                         }
@@ -82,6 +70,7 @@ namespace RetroBat
                         Marshal.FreeHGlobal(buffer);
                     }
                 }
+                return;
             }
             base.WndProc(ref m);
         }
