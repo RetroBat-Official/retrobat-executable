@@ -4,133 +4,128 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Drawing;
 
-class RawInputForm : Form
+namespace RetroBat
 {
-    // Constants
-    const int WM_INPUT = 0x00FF;
-    const uint RID_INPUT = 0x10000003;
-    const uint RIM_TYPEHID = 2;
-    const uint RIDEV_INPUTSINK = 0x00000100;
-
-    // P/Invoke declarations
-    [DllImport("User32.dll")]
-    static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] pRawInputDevices, uint uiNumDevices, uint cbSize);
-
-    [DllImport("User32.dll")]
-    static extern uint GetRawInputData(IntPtr hRawInput, uint uiCommand, IntPtr pData, ref uint pcbSize, uint cbSizeHeader);
-
-    public RawInputForm()
+    public abstract class RawInputForm : Form
     {
-        var handle = this.Handle;
-
-        SimpleLogger.Instance.Info("RawInputForm started, registering raw input devices...");
-        // Register to receive raw input from gamepads (usage page 1, usage 5 = gamepad)
-        RAWINPUTDEVICE[] rid = new RAWINPUTDEVICE[1];
-        rid[0].usUsagePage = 0x01;  // Generic Desktop Controls
-        rid[0].usUsage = 0x05;      // Gamepad (use 0x04 for Joystick)
-        rid[0].dwFlags = RIDEV_INPUTSINK; // Receive input even if not focused
-        rid[0].hwndTarget = this.Handle;
-
-        if (!RegisterRawInputDevices(rid, (uint)rid.Length, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE))))
+        protected override void OnLoad(EventArgs e)
         {
-            SimpleLogger.Instance.Warning("Failed to register raw input device(s).");
-        }
-        else
-        {
-            SimpleLogger.Instance.Info("Registered raw input device(s) successfully.");
+            base.OnLoad(e);
+
+            SimpleLogger.Instance.Info("RawInputForm started, registering raw input devices...");
+
+            // Register to receive raw input from gamepads (usage page 1, usage 5 = gamepad)
+            RAWINPUTDEVICE[] rid = new RAWINPUTDEVICE[1];
+            rid[0].usUsagePage = 0x01;  // Generic Desktop Controls
+            rid[0].usUsage = 0x05;      // Gamepad (use 0x04 for Joystick)
+            rid[0].dwFlags = RIDEV_INPUTSINK; // Receive input even if not focused
+            rid[0].hwndTarget = this.Handle;
+
+            if (!RegisterRawInputDevices(rid, (uint)rid.Length, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICE))))
+                SimpleLogger.Instance.Warning("Failed to register raw input device(s).");
+            else
+                SimpleLogger.Instance.Info("Registered raw input device(s) successfully.");
         }
 
-        this.FormBorderStyle = FormBorderStyle.None;
-        this.Opacity = 0.01;  // Almost fully transparent, but not zero
-        this.Width = 100;      // Must be > 0
-        this.Height = 100;     // Must be > 0
-        this.StartPosition = FormStartPosition.Manual;
-        this.Location = new System.Drawing.Point(-32000, -32000);  // Offscreen
-    }
-
-    protected override void WndProc(ref Message m)
-    {
-        if (m.Msg == WM_INPUT)
+        protected bool RawInputDetected { get; private set; }
+      
+        protected override void WndProc(ref Message m)
         {
-            uint dwSize = 0;
-            // First get the size of the raw input data
-            GetRawInputData(m.LParam, RID_INPUT, IntPtr.Zero, ref dwSize, (uint)Marshal.SizeOf(typeof(RAWINPUTHEADER)));
-
-            if (dwSize > 0)
+            if (m.Msg == WM_INPUT)
             {
-                IntPtr buffer = Marshal.AllocHGlobal((int)dwSize);
-                try
+                uint dwSize = 0;
+                // First get the size of the raw input data
+                GetRawInputData(m.LParam, RID_INPUT, IntPtr.Zero, ref dwSize, (uint)Marshal.SizeOf(typeof(RAWINPUTHEADER)));
+
+                if (dwSize > 0)
                 {
-                    uint readSize = GetRawInputData(m.LParam, RID_INPUT, buffer, ref dwSize, (uint)Marshal.SizeOf(typeof(RAWINPUTHEADER)));
-                    if (readSize == dwSize)
+                    IntPtr buffer = Marshal.AllocHGlobal((int)dwSize);
+                    try
                     {
-                        // Read the header
-                        RAWINPUTHEADER header = (RAWINPUTHEADER)Marshal.PtrToStructure(buffer, typeof(RAWINPUTHEADER));
-
-                        if (header.dwType == RIM_TYPEHID)
+                        uint readSize = GetRawInputData(m.LParam, RID_INPUT, buffer, ref dwSize, (uint)Marshal.SizeOf(typeof(RAWINPUTHEADER)));
+                        if (readSize == dwSize)
                         {
-                            IntPtr pRawHidData = IntPtr.Add(buffer, Marshal.SizeOf(typeof(RAWINPUTHEADER)));
-                            RAWHID rawHid = (RAWHID)Marshal.PtrToStructure(pRawHidData, typeof(RAWHID));
-                            IntPtr pRawData = IntPtr.Add(pRawHidData, Marshal.SizeOf(typeof(RAWHID)));
+                            // Read the header
+                            RAWINPUTHEADER header = (RAWINPUTHEADER)Marshal.PtrToStructure(buffer, typeof(RAWINPUTHEADER));
 
-                            int rawDataLength = (int)(rawHid.dwSizeHid * rawHid.dwCount);
-                            byte[] rawData = new byte[rawDataLength];
-                            Marshal.Copy(pRawData, rawData, 0, rawDataLength);
-
-                            string rawDataStr = "Raw HID data bytes: ";
-                            for (int i = 0; i < Math.Min(16, rawDataLength); i++)
-                                rawDataStr += $"{rawData[i]:X2} ";
-
-                            bool gamepadButtonPressed = false;
-                            for (int i = 0; i < rawDataLength; i++)
+                            if (header.dwType == RIM_TYPEHID)
                             {
-                                if (rawData[i] != 0)
+                                IntPtr pRawHidData = IntPtr.Add(buffer, Marshal.SizeOf(typeof(RAWINPUTHEADER)));
+                                RAWHID rawHid = (RAWHID)Marshal.PtrToStructure(pRawHidData, typeof(RAWHID));
+                                IntPtr pRawData = IntPtr.Add(pRawHidData, Marshal.SizeOf(typeof(RAWHID)));
+
+                                int rawDataLength = (int)(rawHid.dwSizeHid * rawHid.dwCount);
+                                byte[] rawData = new byte[rawDataLength];
+                                Marshal.Copy(pRawData, rawData, 0, rawDataLength);
+
+                                string rawDataStr = "Raw HID data bytes: ";
+                                for (int i = 0; i < Math.Min(16, rawDataLength); i++)
+                                    rawDataStr += $"{rawData[i]:X2} ";
+
+                                bool gamepadButtonPressed = false;
+                                for (int i = 0; i < rawDataLength; i++)
                                 {
-                                    gamepadButtonPressed = true;
-                                    break;
+                                    if (rawData[i] != 0)
+                                    {
+                                        gamepadButtonPressed = true;
+                                        break;
+                                    }
                                 }
-                            }
-                            if (gamepadButtonPressed)
-                            {
-                                VideoPlayerForm.ControllerInputDetected = true;
+
+                                if (gamepadButtonPressed)
+                                    RawInputDetected = true;
                             }
                         }
                     }
-                }
-                finally
-                {
-                    Marshal.FreeHGlobal(buffer);
+                    finally
+                    {
+                        Marshal.FreeHGlobal(buffer);
+                    }
                 }
             }
+            base.WndProc(ref m);
         }
-        base.WndProc(ref m);
-    }
 
-    // Structures
+        #region Api
+        // Constants
+        const int WM_INPUT = 0x00FF;
+        const uint RID_INPUT = 0x10000003;
+        const uint RIM_TYPEHID = 2;
+        const uint RIDEV_INPUTSINK = 0x00000100;
 
-    [StructLayout(LayoutKind.Sequential)]
-    struct RAWINPUTDEVICE
-    {
-        public ushort usUsagePage;
-        public ushort usUsage;
-        public uint dwFlags;
-        public IntPtr hwndTarget;
-    }
+        // P/Invoke declarations
+        [DllImport("User32.dll")]
+        static extern bool RegisterRawInputDevices(RAWINPUTDEVICE[] pRawInputDevices, uint uiNumDevices, uint cbSize);
 
-    [StructLayout(LayoutKind.Sequential)]
-    struct RAWINPUTHEADER
-    {
-        public uint dwType;
-        public uint dwSize;
-        public IntPtr hDevice;
-        public IntPtr wParam;
-    }
+        [DllImport("User32.dll")]
+        static extern uint GetRawInputData(IntPtr hRawInput, uint uiCommand, IntPtr pData, ref uint pcbSize, uint cbSizeHeader);
+     
+        // Structures
+        [StructLayout(LayoutKind.Sequential)]
+        struct RAWINPUTDEVICE
+        {
+            public ushort usUsagePage;
+            public ushort usUsage;
+            public uint dwFlags;
+            public IntPtr hwndTarget;
+        }
 
-    [StructLayout(LayoutKind.Sequential)]
-    struct RAWHID
-    {
-        public uint dwSizeHid;
-        public uint dwCount;
-        // Followed by variable length raw data, handled manually
+        [StructLayout(LayoutKind.Sequential)]
+        struct RAWINPUTHEADER
+        {
+            public uint dwType;
+            public uint dwSize;
+            public IntPtr hDevice;
+            public IntPtr wParam;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct RAWHID
+        {
+            public uint dwSizeHid;
+            public uint dwCount;
+            // Followed by variable length raw data, handled manually
+        }
+        #endregion
     }
 }

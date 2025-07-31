@@ -67,7 +67,7 @@ namespace RetroBat
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new VideoPlayerForm(videoFile, esPath, config.VideoDuration, config.GamepadVideoKill));
+                Application.Run(new VideoPlayerForm(videoFile, esPath, config.GamepadVideoKill, config.KillVideoWhenESReady));
             });
 
             thread.SetApartmentState(ApartmentState.STA); // STA is required for WPF interop

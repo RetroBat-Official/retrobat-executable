@@ -164,9 +164,7 @@ namespace RetroBat
             }
 
             if (config.GameListOnly)
-            {
                 commandArray.Add("--gamelist-only");
-            }
             else
                 RemoveParseGamelistOnly(esPath);
 
@@ -217,8 +215,10 @@ namespace RetroBat
             try
             {
                 SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + args);
-                var exe = Process.Start(start);
 
+                var exe = Process.Start(start);
+                exe.WaitForExit();
+                /*
                 if (exe != null)
                 {
                     bool success = FocusHelper.BringProcessWindowToFrontWithRetry(exe);
@@ -227,7 +227,7 @@ namespace RetroBat
                     else
                         SimpleLogger.Instance.Info("EmulationStation window is now in the foreground.");
                     Thread.Sleep(1000);
-                }
+                }*/
             }
             catch (Exception ex) { SimpleLogger.Instance.Warning("Failed to start EmulationStation: " + ex.Message); }
 
@@ -244,6 +244,7 @@ namespace RetroBat
                 EnableIntro = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "EnableIntro", "true")),
                 RandomVideo = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "RandomVideo", "true")),
                 GamepadVideoKill = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "GamepadVideoKill", "true")),
+                KillVideoWhenESReady = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "KillVideoWhenESReady", "false")),
                 FileName = IniFile.GetOptionValue(ini, "SplashScreen", "FileName", "RetroBat-neon.mp4"),
                 FilePath = IniFile.GetOptionValue(ini, "SplashScreen", "FilePath", "default"),
                 Autostart = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "Autostart", "false")),
@@ -258,11 +259,6 @@ namespace RetroBat
                 config.AutoStartDelay = startdelay;
             else
                 config.AutoStartDelay = 5000;
-
-            if (int.TryParse(IniFile.GetOptionValue(ini, "SplashScreen", "VideoDuration", "6500"), out int duration))
-                config.VideoDuration = duration;
-            else
-                config.VideoDuration = 6500;
 
             if (int.TryParse(IniFile.GetOptionValue(ini, "EmulationStation", "InterfaceMode", "0"), out int interfaceMode))
                 config.InterfaceMode = interfaceMode;
