@@ -102,7 +102,7 @@ namespace RetroBat
             SimpleLogger.Instance.Info("All necessary files exist.");
 
             // Write path to registry
-            RegistryTools.SetRegistryKey(appFolder + "\\");
+            RegistryTools.SetRegistryKey(appFolder);
 
             // Get values from ini file
             RetroBatConfig config = new RetroBatConfig();
