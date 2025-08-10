@@ -5,13 +5,21 @@ namespace RetroBat
 {
     public static class XInput
     {
-        // Face button bit masks
+        private const ushort XINPUT_GAMEPAD_DPAD_UP = 0x0001;
+        private const ushort XINPUT_GAMEPAD_DPAD_DOWN = 0x0002;
+        private const ushort XINPUT_GAMEPAD_DPAD_LEFT = 0x0004;
+        private const ushort XINPUT_GAMEPAD_DPAD_RIGHT = 0x0008;
+        private const ushort XINPUT_GAMEPAD_START = 0x0010;
+        private const ushort XINPUT_GAMEPAD_BACK = 0x0020;
+        private const ushort XINPUT_GAMEPAD_LEFT_THUMB = 0x0040;
+        private const ushort XINPUT_GAMEPAD_RIGHT_THUMB = 0x0080;
+        private const ushort XINPUT_GAMEPAD_LEFT_SHOULDER = 0x0100;
+        private const ushort XINPUT_GAMEPAD_RIGHT_SHOULDER = 0x0200;
         private const ushort XINPUT_GAMEPAD_A = 0x1000;
         private const ushort XINPUT_GAMEPAD_B = 0x2000;
         private const ushort XINPUT_GAMEPAD_X = 0x4000;
         private const ushort XINPUT_GAMEPAD_Y = 0x8000;
 
-        // XInput gamepad structure
         [StructLayout(LayoutKind.Sequential)]
         private struct XINPUT_GAMEPAD
         {
@@ -24,7 +32,6 @@ namespace RetroBat
             public short sThumbRY;
         }
 
-        // XInput state structure
         [StructLayout(LayoutKind.Sequential)]
         private struct XINPUT_STATE
         {
@@ -37,7 +44,7 @@ namespace RetroBat
         private static extern uint XInputGetState(uint dwUserIndex, out XINPUT_STATE pState);
 
         /// <summary>
-        /// Checks if any face button (A, B, X, Y) is pressed on any connected XInput controller.
+        /// Checks if specific a button is pressed on any connected XInput controller.
         /// </summary>
         public static bool IsFaceButtonPressed()
         {
@@ -46,7 +53,7 @@ namespace RetroBat
                 if (XInputGetState(i, out XINPUT_STATE state) == 0) // 0 = Success
                 {
                     ushort buttons = state.Gamepad.wButtons;
-                    if ((buttons & (XINPUT_GAMEPAD_A | XINPUT_GAMEPAD_B | XINPUT_GAMEPAD_X | XINPUT_GAMEPAD_Y)) != 0)
+                    if ((buttons & (XINPUT_GAMEPAD_START | XINPUT_GAMEPAD_BACK | XINPUT_GAMEPAD_LEFT_SHOULDER | XINPUT_GAMEPAD_RIGHT_SHOULDER)) != 0)
                         return true;
                 }
             }
