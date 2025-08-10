@@ -10,7 +10,7 @@ using System.Windows.Media;
 
 namespace RetroBat
 {
-    public class VideoPlayerForm : RawInputForm
+    public class VideoPlayerForm : Form
     {
         private ElementHost _elementHost;
         private MediaElement _mediaElement;
@@ -128,7 +128,7 @@ namespace RetroBat
             this.TopMost = true;
             this.BringToFront();
 
-            bool gamepadButtonPressed = _gamepadKill && RawInputDetected;
+            bool gamepadButtonPressed = _gamepadKill && XInput.IsFaceButtonPressed();
             bool inputDetected = keysToCheck.Any(k => GetAsyncKeyState(k) < 0);
             bool fileTriggered = File.Exists(_path) && !_letVideoRun;
 
