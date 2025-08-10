@@ -80,7 +80,7 @@ VideoDelay=1000
 ; Set this to stop when video automatically when the interface has loaded
 KillVideoWhenESReady=0
 
-; Allow killing intro video with Gamepad press (this can trigger false positive with joystick drift)
+; Allow killing intro video with Gamepad press (this only works with XInput controllers)
 GamepadVideoKill=1
 
 [EmulationStation]

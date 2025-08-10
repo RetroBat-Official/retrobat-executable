@@ -68,6 +68,7 @@
     <Compile Include="VideoPlayerForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="XInput.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
