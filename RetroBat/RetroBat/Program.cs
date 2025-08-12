@@ -130,9 +130,14 @@ namespace RetroBat
             if (config.LanguageDetection)
                 WriteLanguageToES(esPath, windowsCulture);
 
+            // Set old OpenGL
+            SetGLVersion(esPath, config.OpenGL2_1);
+
             // Set RetroBat to start at startup
             if (config.Autostart)
                 AddToStartup("RetroBat", Path.Combine(appFolder, "RetroBat_New.exe"));
+            else
+                RemoveFromStartup("RetroBat");
 
             // Reset es_settings
             if (config.ResetConfigMode)
@@ -142,7 +147,7 @@ namespace RetroBat
             if (config.EnableIntro)
             {
                 SplashVideo.RunIntroVideo(config, esPath);
-                if (!config.FullscreenBorderless)
+                if (!config.FullscreenBorderless && !config.WaitForVideoEnd)
                     Thread.Sleep(config.VideoDelay);
             }
 
@@ -194,6 +199,14 @@ namespace RetroBat
 
             if (config.NoExitMenu)
                 commandArray.Add("--no-exit");
+
+            if (config.VSync)
+                commandArray.Add("--vsync 1");
+            else
+                commandArray.Add("--vsync 0");
+
+            if (config.DrawFramerate)
+                commandArray.Add("--draw-framerate");
 
             commandArray.Add("--home");
             commandArray.Add("\"" + esPath + "\"");
@@ -258,6 +271,7 @@ namespace RetroBat
                 RandomVideo = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "RandomVideo", "true")),
                 GamepadVideoKill = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "GamepadVideoKill", "true")),
                 KillVideoWhenESReady = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "KillVideoWhenESReady", "false")),
+                WaitForVideoEnd = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "WaitForVideoEnd", "false")),
                 FileName = IniFile.GetOptionValue(ini, "SplashScreen", "FileName", "retrobat-neon.mp4"),
                 FilePath = IniFile.GetOptionValue(ini, "SplashScreen", "FilePath", "default"),
                 Autostart = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "Autostart", "false")),
@@ -265,7 +279,10 @@ namespace RetroBat
                 FullscreenBorderless = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "FullscreenBorderless", "true")),
                 ForceFullscreenRes = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "ForceFullscreenRes", "false")),
                 GameListOnly = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "GameListOnly", "false")),
-                NoExitMenu = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "NoExitMenu", "false"))
+                NoExitMenu = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "NoExitMenu", "false")),
+                OpenGL2_1 = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "OpenGL2_1", "false")),
+                VSync = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "VSync", "true")),
+                DrawFramerate = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "DrawFramerate", "false")),
             };
             
             if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "AutoStartDelay", "5000"), out int startdelay))
@@ -321,6 +338,21 @@ namespace RetroBat
             catch (Exception ex)
             {
                 SimpleLogger.Instance.Warning("Failed to set startup registry key: " + ex.Message);
+            }
+        }
+
+        private static void RemoveFromStartup(string appName)
+        {
+            SimpleLogger.Instance.Info("Ensuring RetroBat does not launch at startup.");
+
+            try
+            {
+                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
+                key.DeleteValue(appName);
+            }
+            catch (Exception ex)
+            {
+                SimpleLogger.Instance.Warning("Failed to remove startup registry key: " + ex.Message);
             }
         }
 
@@ -455,6 +487,52 @@ namespace RetroBat
             catch (Exception ex) { SimpleLogger.Instance.Warning("Could not update EmulationStation language: " + ex.Message); }
         }
 
+        private static void SetGLVersion(string esPath, bool oldOpenGL)
+        {
+            string esSettingsPath = Path.Combine(esPath, ".emulationstation", "es_settings.cfg");
+            if (!File.Exists(esSettingsPath))
+            {
+                SimpleLogger.Instance.Error("es_settings.cfg cannot be found at: " + esSettingsPath);
+                throw new FileNotFoundException("es_settings.cfg not found.");
+            }
+            else
+                SimpleLogger.Instance.Info("es_settings.cfg path: " + esSettingsPath);
+
+            try
+            {
+                XmlDocument xml = new XmlDocument();
+                xml.Load(esSettingsPath);
+                XmlNode GLNode = xml.SelectSingleNode("//string[@name='Renderer']");
+
+                if (GLNode != null && GLNode.Attributes != null)
+                {
+                    if (oldOpenGL)
+                    {
+                        SimpleLogger.Instance.Info("es_settings.cfg, setting old renderer");
+                        GLNode.Attributes["value"].Value = "OPENGL 2.1";
+                    }
+                    else
+                        GLNode.RemoveAll();
+                }
+                else if (oldOpenGL)
+                {
+                    // Create the node
+                    XmlElement newNode = xml.CreateElement("string");
+                    newNode.SetAttribute("name", "Renderer");
+                    newNode.SetAttribute("value", "OPENGL 2.1");
+
+                    // Append to root <config> element
+                    XmlNode configNode = xml.SelectSingleNode("/config");
+                    if (configNode != null)
+                        configNode.AppendChild(newNode);
+                    else
+                        SimpleLogger.Instance.Warning("Could not update EmulationStation renderer.");
+                }
+                xml.Save(esSettingsPath);
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Could not update EmulationStation renderer: " + ex.Message); }
+        }
+
         private static void RemoveParseGamelistOnly(string esPath)
         {
             string esSettingsPath = Path.Combine(esPath, ".emulationstation", "es_settings.cfg");
@@ -482,7 +560,7 @@ namespace RetroBat
                 else
                 {
                     // Create the node
-                    XmlElement newNode = xml.CreateElement("string");
+                    XmlElement newNode = xml.CreateElement("bool");
                     newNode.SetAttribute("name", "ParseGamelistOnly");
                     newNode.SetAttribute("value", "false");
 
