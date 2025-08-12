@@ -66,7 +66,7 @@ EnableIntro=1
 ; The name of the video file to play. RandomVideo must be set on 0 to take effect.
 FileName=""retrobat-neon.mp4""
 
-; If ""default"" is set, RetroBat will use the default video path where video files are stored.
+; If 'default' is set, RetroBat will use the default video path where video files are stored.
 ; Enter a full path to use a custom directory for video files.
 FilePath=""default""
 
@@ -76,6 +76,9 @@ RandomVideo=1
 ; Set the delay between the start of the video and the start of the interface.
 ; Setting a longer delay can help if the video is not displayed in the foreground
 VideoDelay=1000
+
+; By default RetroBat loads EmulationStation in parallel of the intro video, setting this to '1' tells RetroBat to wait for the video to finish before loading ES
+WaitForVideoEnd=0
 
 ; Set this to stop when video automatically when the interface has loaded
 KillVideoWhenESReady=0
@@ -106,15 +109,24 @@ InterfaceMode=0
 ; Set to which monitor index the frontend will be displayed.
 MonitorIndex=0
 
+; Disable to disable VSync in RetroBat interface.
+VSync=1
+
 ; Set if the option to quit the frontend is displayed or not when the full menu is enabled.
 NoExitMenu=0
+
+; Set if you are using an old GPU not compatible with newest OpenGL version.
+OpenGL2_1=0
 
 ; Set the windows width of the frontend.
 WindowXSize=1280
 
 ; Set the windows height of the frontend.
-WindowYSize=720";
-        }
+WindowYSize=720
+
+; Draw framerate in EmulationStation.
+DrawFramerate=0";
+}
 
         public void SetOptions(IniOptions options)
         {
@@ -644,6 +656,7 @@ WindowYSize=720";
         public bool RandomVideo { get; set; }
         public int VideoDelay { get; set; }
         public bool KillVideoWhenESReady { get; set; }
+        public bool WaitForVideoEnd { get; set; }
         public bool GamepadVideoKill { get; set; }
         public bool Fullscreen { get; set; }
         public bool FullscreenBorderless { get; set; }
@@ -652,6 +665,9 @@ WindowYSize=720";
         public int InterfaceMode { get; set; }
         public int MonitorIndex { get; set; }
         public bool NoExitMenu { get; set; }
+        public bool OpenGL2_1 { get; set;}
+        public bool VSync { get; set; }
+        public bool DrawFramerate { get; set; }
         public int WindowXSize { get; set; }
         public int WindowYSize { get; set; }
     }

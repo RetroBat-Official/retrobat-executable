@@ -63,92 +63,29 @@ namespace RetroBat
 
             SimpleLogger.Instance.Info("Video file to play: " + videoFile);
 
+            var videoDone = new ManualResetEvent(false);
+
             var thread = new Thread(() =>
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new VideoPlayerForm(videoFile, esPath, config.GamepadVideoKill, config.KillVideoWhenESReady));
+                using (var form = new VideoPlayerForm(videoFile, esPath, config.GamepadVideoKill, config.KillVideoWhenESReady))
+                {
+                    form.FormClosed += (s, e) =>
+                    {
+                        videoDone.Set();
+                    };
+                    Application.Run(form);
+                }
             });
 
             thread.SetApartmentState(ApartmentState.STA); // STA is required for WPF interop
             thread.Start();
-            /*
 
-            int videoduration = config.VideoDuration;
-            SimpleLogger.Instance.Info("Video duration set to: " + videoduration.ToString());
-
-            List<string> commandArray = new List<string>
+            if (config.WaitForVideoEnd)
             {
-                "--video",
-                "\"" + videoFile + "\""
-            };
-
-            string args = string.Join(" ", commandArray);
-            string exeES = Path.Combine(esPath, "emulationstation.exe");
-
-            var start = new ProcessStartInfo()
-            {
-                FileName = exeES,
-                WorkingDirectory = esPath,
-                Arguments = args,
-                UseShellExecute = false
-            };
-
-            if (start == null)
-                return;
-
-            TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
-            
-            if (config.Autostart && uptime.TotalSeconds < 30)
-            {
-                SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a 6 seconds delay.");
-                System.Threading.Thread.Sleep(6000);
+                videoDone.WaitOne();
             }
-
-            try
-            {
-                var p = Process.Start(start);
-
-                if (p == null)
-                {
-                    SimpleLogger.Instance.Warning("Process failed to start.");
-                    return;
-                }
-
-                var inputThread = new Thread(() =>
-                {
-                    Thread.Sleep(200);
-
-                    while (!p.HasExited)
-                    {
-                        bool inputDetected = keysToCheck.Any(k => GetAsyncKeyState(k) < 0);
-                        bool gamepadButtonPressed = false;
-
-                        if (inputDetected || gamepadButtonPressed)
-                        {
-                            SimpleLogger.Instance.Info("Input detected. Killing video process.");
-                            try { p.Kill(); } catch { }
-                            break;
-                        }
-
-                        Thread.Sleep(100);
-                    }
-                });
-
-                inputThread.IsBackground = true;
-                inputThread.Start();
-                
-                // Wait for duration or exit
-                if (videoduration < 1000)
-                    p.WaitForExit();
-                else
-                    p.WaitForExit(videoduration + 1000);
-                
-            }
-            catch (Exception ex)
-            {
-                SimpleLogger.Instance.Warning("Failed to start EmulationStation video: " + ex.Message);
-            }*/
         }
     }
 }
