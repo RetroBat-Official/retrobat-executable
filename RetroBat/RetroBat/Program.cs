@@ -21,15 +21,15 @@ namespace RetroBat
         static void Main()
         {
             string exeName = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName);
-            if (!exeName.Equals("RetroBat-New.exe", StringComparison.OrdinalIgnoreCase))
+            if (!exeName.Equals("RetroBat.exe", StringComparison.OrdinalIgnoreCase))
             {
                 MessageBox.Show("Executable name has been changed!", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 Environment.Exit(1);
             }
 
-            File.WriteAllText("RetroBat-New.log", string.Empty); // Clear log file at startup
+            File.WriteAllText("RetroBat.log", string.Empty); // Clear log file at startup
             SimpleLogger.Instance.Info("--------------------------------------------------------------");
-            SimpleLogger.Instance.Info("[Startup] RetroBat-New.exe");
+            SimpleLogger.Instance.Info("[Startup] RetroBat.exe");
 
             CultureInfo windowsCulture = CultureInfo.CurrentUICulture;
             SimpleLogger.Instance.Info("Current culture: " + windowsCulture.ToString());
@@ -135,7 +135,7 @@ namespace RetroBat
 
             // Set RetroBat to start at startup
             if (config.Autostart)
-                AddToStartup("RetroBat", Path.Combine(appFolder, "RetroBat_New.exe"));
+                AddToStartup("RetroBat", Path.Combine(appFolder, "RetroBat.exe"));
             else
                 RemoveFromStartup("RetroBat");
 

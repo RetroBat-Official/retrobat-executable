@@ -7,7 +7,7 @@
     <ProjectGuid>{91B9692A-A528-4342-946F-C39E6227B18D}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>RetroBat</RootNamespace>
-    <AssemblyName>RetroBat-New</AssemblyName>
+    <AssemblyName>RetroBat</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -26,7 +26,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>none</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\..\..\..\..\..\..\RetroBat7.1\</OutputPath>
+    <OutputPath>.\</OutputPath>
     <DefineConstants>
     </DefineConstants>
     <ErrorReport>prompt</ErrorReport>
