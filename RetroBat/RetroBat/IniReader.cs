@@ -78,7 +78,7 @@ RandomVideo=1
 VideoDelay=1000
 
 ; By default RetroBat loads EmulationStation in parallel of the intro video, setting this to '1' tells RetroBat to wait for the video to finish before loading ES
-WaitForVideoEnd=0
+WaitForVideoEnd=1
 
 ; Set this to stop when video automatically when the interface has loaded
 KillVideoWhenESReady=0

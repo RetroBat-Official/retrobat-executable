@@ -7,12 +7,15 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.Windows.Media;
+using System.Drawing;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrayNotify;
 
 namespace RetroBat
 {
     internal class SplashVideo
     {
+        private static Form _blackSplashForm;
         public static void RunIntroVideo(RetroBatConfig config, string esPath)
         {
             if (!config.EnableIntro)
@@ -79,13 +82,63 @@ namespace RetroBat
                 }
             });
 
-            thread.SetApartmentState(ApartmentState.STA); // STA is required for WPF interop
+            thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
 
             if (config.WaitForVideoEnd)
             {
                 videoDone.WaitOne();
             }
+        }
+        public static void ShowBlackSplash()
+        {
+            if (_blackSplashForm != null)
+                return;
+
+            var splashDone = new ManualResetEvent(false);
+
+            var thread = new Thread(() =>
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+
+                _blackSplashForm = new Form
+                {
+                    BackColor = System.Drawing.Color.Black,
+                    FormBorderStyle = FormBorderStyle.None,
+                    WindowState = FormWindowState.Maximized,
+                    TopMost = true,
+                    ShowInTaskbar = false
+                };
+
+                _blackSplashForm.Shown += (s, e) => splashDone.Set();
+                Application.Run(_blackSplashForm);
+            });
+
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+
+            // Wait until the form is actually shown
+            splashDone.WaitOne();
+        }
+
+        public static void CloseBlackSplash()
+        {
+            if (_blackSplashForm == null || _blackSplashForm.IsDisposed)
+                return;
+
+            try
+            {
+                if (_blackSplashForm.IsHandleCreated)
+                {
+                    _blackSplashForm.BeginInvoke(new Action(() =>
+                    {
+                        _blackSplashForm.Close();
+                        _blackSplashForm = null;
+                    }));
+                }
+            }
+            catch { }
         }
     }
 }

@@ -147,7 +147,8 @@ namespace RetroBat
             if (config.EnableIntro)
             {
                 SplashVideo.RunIntroVideo(config, esPath);
-                if (!config.FullscreenBorderless && !config.WaitForVideoEnd)
+                SplashVideo.ShowBlackSplash();
+                if (!config.WaitForVideoEnd && !config.KillVideoWhenESReady)
                     Thread.Sleep(config.VideoDelay);
             }
 
@@ -241,6 +242,28 @@ namespace RetroBat
                 SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + args);
 
                 var exe = Process.Start(start);
+
+                IntPtr esHandle = IntPtr.Zero;
+                int retries = 0;
+
+                // Wait until EmulationStation has a main window handle
+                while (esHandle == IntPtr.Zero && retries < 50) // ~5 seconds if 100ms sleep
+                {
+                    Thread.Sleep(100);
+                    esHandle = GetEmulationStationHandle();
+                    retries++;
+                }
+
+                SimpleLogger.Instance.Info("EmulationStation detected, closing splash.");
+                SplashVideo.CloseBlackSplash();
+
+                if (esHandle != IntPtr.Zero)
+                {
+                    FocusHelper.BringProcessWindowToFrontWithRetry(
+                        Process.GetProcessById(Process.GetProcessesByName("emulationstation")[0].Id));
+                }
+                
+
                 /*exe.WaitForExit();
                 
                 if (exe != null)
@@ -258,6 +281,15 @@ namespace RetroBat
             SimpleLogger.Instance.Info("All is good, enjoy, quitting RetroBat launcher.");
         }
 
+        private static IntPtr GetEmulationStationHandle()
+        {
+            var esProcess = Process.GetProcessesByName("emulationstation").FirstOrDefault();
+            if (esProcess == null)
+                return IntPtr.Zero;
+
+            return esProcess.MainWindowHandle;
+        }
+
         private static RetroBatConfig GetConfigValues(IniFile ini)
         {
             RetroBatConfig config = new RetroBatConfig
@@ -269,7 +301,7 @@ namespace RetroBat
                 RandomVideo = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "RandomVideo", "true")),
                 GamepadVideoKill = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "GamepadVideoKill", "true")),
                 KillVideoWhenESReady = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "KillVideoWhenESReady", "false")),
-                WaitForVideoEnd = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "WaitForVideoEnd", "false")),
+                WaitForVideoEnd = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "WaitForVideoEnd", "true")),
                 FileName = IniFile.GetOptionValue(ini, "SplashScreen", "FileName", "retrobat-neon.mp4"),
                 FilePath = IniFile.GetOptionValue(ini, "SplashScreen", "FilePath", "default"),
                 Autostart = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "Autostart", "false")),
