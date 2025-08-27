@@ -124,10 +124,6 @@ namespace RetroBat
                 SetActiveWindow(this.Handle);
             }
 
-            this.TopMost = false;
-            this.TopMost = true;
-            this.BringToFront();
-
             bool gamepadButtonPressed = _gamepadKill && XInput.IsFaceButtonPressed();
             bool inputDetected = keysToCheck.Any(k => GetAsyncKeyState(k) < 0);
             bool fileTriggered = File.Exists(_path) && !_letVideoRun;
