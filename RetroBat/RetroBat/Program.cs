@@ -259,10 +259,15 @@ namespace RetroBat
 
                 if (esHandle != IntPtr.Zero)
                 {
+                    SimpleLogger.Instance.Info("EmulationStation detected, closing splash.");
                     FocusHelper.BringProcessWindowToFrontWithRetry(
                         Process.GetProcessById(Process.GetProcessesByName("emulationstation")[0].Id));
                 }
-                
+                else
+                {
+                    SimpleLogger.Instance.Warning("EmulationStation window not detected, closing splash anyway.");
+                }
+                SplashVideo.CloseBlackSplash();
 
                 /*exe.WaitForExit();
                 
