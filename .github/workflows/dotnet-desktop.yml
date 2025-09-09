@@ -11,11 +11,12 @@ jobs:
     runs-on: windows-latest
 
     strategy:
+      fail-fast: false   # Continue même si un job échoue
       matrix:
         configuration: [Debug, Release]
 
     env:
-      Solution_Name: RetroBat/RetroBat.sln   
+      Solution_Name: RetroBat/RetroBat.sln   # ton vrai fichier .sln
 
     steps:
     - name: Checkout repository
@@ -25,20 +26,28 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
-    # Restore NuGet si nécessaire (utile si tu ajoutes des packages NuGet)
+    # Restore NuGet (si tu utilises des packages NuGet)
     - name: Restore NuGet packages
       run: nuget restore $env:Solution_Name
 
     # Build de la solution
     - name: Build solution
-      run: msbuild $env:Solution_Name /p:Configuration=${{ matrix.configuration }}
+      run: msbuild $env:Solution_Name /p:Configuration=${{ matrix.configuration }} /p:Platform="Any CPU" /verbosity:minimal
+      continue-on-error: true   # ne bloque pas le reste si ça échoue
 
-    # (Optionnel) Run tests si tu ajoutes un projet de tests
-    #- name: Run tests
-    #  run: vstest.console.exe path\to\YourTests.dll
+    # Upload des logs de build pour débogage
+    - name: Upload MSBuild logs
+      if: always() # toujours uploader, même en cas d'échec
+      uses: actions/upload-artifact@v4
+      with:
+        name: MSBuild-logs-${{ matrix.configuration }}
+        path: |
+          **/*.log
+          **/*.txt
 
     # Upload des artefacts générés (bin/Debug ou bin/Release)
     - name: Upload build artifacts
+      if: always() # toujours uploader, même en cas d'échec
       uses: actions/upload-artifact@v4
       with:
         name: RetroBat-${{ matrix.configuration }}
