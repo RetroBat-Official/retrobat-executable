@@ -10,46 +10,25 @@ jobs:
   build:
     runs-on: windows-latest
 
-    strategy:
-      fail-fast: false   # Continue même si un job échoue
-      matrix:
-        configuration: [Debug, Release]
-
     env:
-      Solution_Name: RetroBat/RetroBat.sln   # ton vrai fichier .sln
+      Solution_Name: RetroBat/RetroBat.sln
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # Ajoute MSBuild pour compiler les projets .NET Framework
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
-    # Restore NuGet (si tu utilises des packages NuGet)
     - name: Restore NuGet packages
       run: nuget restore $env:Solution_Name
 
-    # Build de la solution
-    - name: Build solution
-      run: msbuild $env:Solution_Name /p:Configuration=${{ matrix.configuration }} /p:Platform="Any CPU" /verbosity:minimal
-      continue-on-error: true   # ne bloque pas le reste si ça échoue
+    - name: Build solution (Release)
+      run: msbuild $env:Solution_Name /p:Configuration=Release /p:Platform="Any CPU" /verbosity:minimal
 
-    # Upload des logs de build pour débogage
-    - name: Upload MSBuild logs
-      if: always() # toujours uploader, même en cas d'échec
+    # Upload du dossier bin/Release (avec RetroBat.exe et DLLs)
+    - name: Upload Release build
       uses: actions/upload-artifact@v4
       with:
-        name: MSBuild-logs-${{ matrix.configuration }}
-        path: |
-          **/*.log
-          **/*.txt
-
-    # Upload des artefacts générés (bin/Debug ou bin/Release)
-    - name: Upload build artifacts
-      if: always() # toujours uploader, même en cas d'échec
-      uses: actions/upload-artifact@v4
-      with:
-        name: RetroBat-${{ matrix.configuration }}
-        path: |
-          **/bin/${{ matrix.configuration }}/
+        name: RetroBat-Release
+        path: RetroBat/**/bin/Release/
