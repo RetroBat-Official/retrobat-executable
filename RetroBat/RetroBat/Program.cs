@@ -20,6 +20,9 @@ namespace RetroBat
         [STAThread]
         static void Main()
         {
+            string appFolder = AppDomain.CurrentDomain.BaseDirectory;
+            Directory.SetCurrentDirectory(appFolder);
+
             string exeName = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName);
             if (!exeName.Equals("RetroBat.exe", StringComparison.OrdinalIgnoreCase))
             {
@@ -34,7 +37,6 @@ namespace RetroBat
             CultureInfo windowsCulture = CultureInfo.CurrentUICulture;
             SimpleLogger.Instance.Info("Current culture: " + windowsCulture.ToString());
 
-            string appFolder = AppDomain.CurrentDomain.BaseDirectory;
             string esPath = Path.Combine(appFolder, "emulationstation");
 
             // Ini file check and creation
@@ -135,7 +137,7 @@ namespace RetroBat
 
             // Set RetroBat to start at startup
             if (config.Autostart)
-                AddToStartup(appFolder, "RetroBat.exe", config.AutoStartDelay);
+                AddToStartup(appFolder, "RetroBat.exe");
             else
                 RemoveFromStartup(appFolder);
 
@@ -231,10 +233,11 @@ namespace RetroBat
                 return;
 
             TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
-            if (config.Autostart && !config.EnableIntro && uptime.TotalSeconds < 30)
+            if (config.Autostart && uptime.TotalSeconds < 30)
             {
-                SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a 6 seconds delay.");
-                System.Threading.Thread.Sleep(6000);
+                SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a delay.");
+                int delay = config.AutoStartDelay;
+                System.Threading.Thread.Sleep(delay);
             }
 
             try
@@ -320,10 +323,10 @@ namespace RetroBat
                 DrawFramerate = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "DrawFramerate", "false")),
             };
             
-            if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "AutoStartDelay", "5"), out int startdelay))
+            if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "AutoStartDelay", "1000"), out int startdelay))
                 config.AutoStartDelay = startdelay;
             else
-                config.AutoStartDelay = 5;
+                config.AutoStartDelay = 1000;
 
             if (int.TryParse(IniFile.GetOptionValue(ini, "SplashScreen", "VideoDelay", "5000"), out int VideoDelay))
                 config.VideoDelay = VideoDelay;
@@ -361,48 +364,21 @@ namespace RetroBat
                 return false;
         }
 
-        private static void AddToStartup(string appPath, string appExe, int autostartDelay)
+        private static void AddToStartup(string appPath, string appExe)
         {
             SimpleLogger.Instance.Info("Setting RetroBat to launch at startup.");
 
-            string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
-            string batFile = Path.Combine(appPath, "RetroBatDelayed.bat");
-            int delay;
-
-            if (autostartDelay > 300)
-                delay = (int)Math.Ceiling(autostartDelay / 1000.0);
-            else
-                delay = autostartDelay;
+            string batPath = Path.Combine(appPath, appExe);
 
             try
             {
-                using (StreamWriter writer = new StreamWriter(batFile, false))
-                {
-                    writer.WriteLine("@echo off");
-                    
-                    if (delay > 0)
-                        writer.WriteLine("timeout /t " + delay.ToString() + " /nobreak >nul");
-                    writer.WriteLine($"cd /d \"" + appPath + "\"");
-                    writer.WriteLine("start \"\" \"" + appExe + "\"");
-                    SimpleLogger.Instance.Info("Startup bat file created.");
-                }
+                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
+                key.SetValue("RetroBat", "\"" + batPath + "\"");
+                SimpleLogger.Instance.Info("RetroBat set in registry to startup.");
             }
             catch (Exception ex)
             {
-                SimpleLogger.Instance.Warning("Failed to create startup bat file: " + ex.Message);
-            }
-
-            if (File.Exists(batFile))
-            {
-                try
-                {
-                    RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
-                    key.SetValue("RetroBat", $"cmd /c \"{batFile}\"");
-                }
-                catch (Exception ex)
-                {
-                    SimpleLogger.Instance.Warning("Failed to set startup registry key: " + ex.Message);
-                }
+                SimpleLogger.Instance.Warning("Failed to set startup registry key: " + ex.Message);
             }
         }
 
@@ -418,20 +394,6 @@ namespace RetroBat
             catch (Exception ex)
             {
                 SimpleLogger.Instance.Warning("Failed to remove startup registry key: " + ex.Message);
-            }
-
-            string batFile = Path.Combine(appPath, "RetroBatDelayed.bat");
-
-            if (File.Exists(batFile))
-            {
-                try
-                {
-                    File.Delete(batFile);
-                }
-                catch (Exception ex)
-                {
-                    SimpleLogger.Instance.Warning("Failed to remove startup shortcut: " + ex.Message);
-                }
             }
         }
 
