@@ -1,10 +1,11 @@
-name: .NET Framework Release Build
+name: Build and Release RetroBat
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+      - dev
+      - '*'   # facultatif : toutes les branches, sinon précise celles que tu veux
 
 jobs:
   build:
@@ -12,74 +13,43 @@ jobs:
 
     env:
       Solution_Name: RetroBat/RetroBat.sln
+      Release_Name: RetroBat-${{ github.ref_name }}   # Release différente par branche
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup MSBuild (Visual Studio)
+    # Installer MSBuild
+    - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
+    # Installer .NET Framework 4.8.1 Targeting Pack
+    - name: Add .NET Framework Developer Pack
+      run: choco install netfx-4.8.1-devpack -y
+
+    # Restore NuGet
     - name: Restore NuGet packages
       run: nuget restore $env:Solution_Name
 
-    - name: Retarget projects to .NETFramework v4.8 (if needed)
-      run: |
-        Write-Host "Retargetting any <TargetFrameworkVersion> to v4.8 in all .csproj files..."
-        $files = Get-ChildItem -Path . -Recurse -Filter *.csproj -ErrorAction SilentlyContinue
-        foreach ($f in $files) {
-          $content = Get-Content $f.FullName -Raw
-          if ($content -match '<TargetFrameworkVersion>') {
-            $new = [System.Text.RegularExpressions.Regex]::Replace(
-              $content,
-              '<TargetFrameworkVersion>\s*v?\d\.\d+\s*</TargetFrameworkVersion>',
-              '<TargetFrameworkVersion>v4.8</TargetFrameworkVersion>',
-              [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
-            )
-            if ($new -ne $content) {
-              Set-Content -Path $f.FullName -Value $new -Encoding UTF8
-              Write-Host "Patched: $($f.FullName)"
-            } else {
-              Write-Host "No change needed: $($f.FullName)"
-            }
-          } else {
-            Write-Host "No <TargetFrameworkVersion> node in: $($f.FullName)"
-          }
-        }
-
+    # Build Release seulement
     - name: Build solution (Release)
       run: msbuild $env:Solution_Name /p:Configuration=Release /p:Platform="Any CPU" /verbosity:minimal
 
-    - name: Collect Release outputs (exe + dlls)
+    # Zipper les binaires
+    - name: Zip build output
       run: |
-        $outDir = "$PWD\release_artifact"
-        New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+        mkdir output
+        powershell Compress-Archive -Path **/bin/Release/* -DestinationPath output/RetroBat-${{ github.ref_name }}.zip -Force
 
-        # 1) Try to find RetroBat.exe explicitly
-        $bins = Get-ChildItem -Path . -Recurse -Filter RetroBat.exe -ErrorAction SilentlyContinue
-
-        # 2) fallback: any exe in a bin\Release folder
-        if (-not $bins) {
-          $bins = Get-ChildItem -Path . -Recurse -Include *.exe -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match '\\bin\\Release\\' }
-        }
-
-        if ($bins) {
-          foreach ($b in $bins) {
-            Copy-Item -Path $b.FullName -Destination (Join-Path $outDir $b.Name) -Force
-            # copy DLLs from same directory
-            Get-ChildItem -Path $b.DirectoryName -Filter *.dll -ErrorAction SilentlyContinue | ForEach-Object {
-              Copy-Item $_.FullName (Join-Path $outDir $_.Name) -Force
-            }
-          }
-          Write-Host "Copied binaries to $outDir"
-        } else {
-          Write-Host "No binaries found. Listing possible bin\\Release directories for debugging:"
-          Get-ChildItem -Path . -Recurse -Filter bin -Directory | Where-Object { $_.FullName -match 'Release' } | ForEach-Object { Write-Host $_.FullName }
-        }
-
-    - name: Upload Release artifact
-      if: always()
-      uses: actions/upload-artifact@v4
+    # Créer / mettre à jour la release GitHub
+    - name: Create or Update GitHub Release
+      uses: softprops/action-gh-release@v2
       with:
-        name: RetroBat-Release
-        path: release_artifact/
+        tag_name: ${{ github.ref_name }}
+        name: ${{ env.Release_Name }}
+        body: |
+          🚀 Build automatique pour la branche `${{ github.ref_name }}`
+        files: |
+          output/RetroBat-${{ github.ref_name }}.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
