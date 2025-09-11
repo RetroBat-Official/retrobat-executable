@@ -487,6 +487,7 @@ namespace RetroBat
 
         private static void WriteLanguageToES(string esPath, CultureInfo culture)
         {
+            string cultureText = culture.Name.ToString().Replace('-', '_');
             string esSettingsPath = Path.Combine(esPath, ".emulationstation", "es_settings.cfg");
             if (!File.Exists(esSettingsPath))
             {
@@ -507,14 +508,14 @@ namespace RetroBat
                 if (languageNode != null && languageNode.Attributes != null)
                 {
                     // Update existing node
-                    languageNode.Attributes["value"].Value = culture.ToString();
+                    languageNode.Attributes["value"].Value = cultureText;
                 }
                 else
                 {
                     // Create the node
                     XmlElement newNode = xml.CreateElement("string");
                     newNode.SetAttribute("name", "Language");
-                    newNode.SetAttribute("value", culture.ToString());
+                    newNode.SetAttribute("value", cultureText);
 
                     // Append to root <config> element
                     XmlNode configNode = xml.SelectSingleNode("/config");
