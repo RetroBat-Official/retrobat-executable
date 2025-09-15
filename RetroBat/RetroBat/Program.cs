@@ -20,18 +20,41 @@ namespace RetroBat
         [STAThread]
         static void Main()
         {
+            File.WriteAllText("RetroBat.log", string.Empty); // Clear log file at startup
+            SimpleLogger.Instance.Info("--------------------------------------------------------------");
+
+            var esProcess = Process.GetProcessesByName("emulationstation").FirstOrDefault();
+            if (esProcess != null)
+            {
+                SimpleLogger.Instance.Warning("EmulationStation already running");
+                DialogResult result = MessageBox.Show(
+                "RetroBat already running! Do you want to continue?",
+                "Warning",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning
+                );
+
+                if (result == DialogResult.No)
+                {
+                    // Quit the program
+                    return;
+                }
+            }
+
             string appFolder = AppDomain.CurrentDomain.BaseDirectory;
             Directory.SetCurrentDirectory(appFolder);
 
-            string exeName = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName);
-            if (!exeName.Equals("RetroBat.exe", StringComparison.OrdinalIgnoreCase))
+            string actualPath = Process.GetCurrentProcess().MainModule.FileName;
+            string expectedPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RetroBat.exe");
+
+            SimpleLogger.Instance.Info("Actual path launched: " + actualPath);
+            SimpleLogger.Instance.Info("Expected Path: " + expectedPath);
+
+            if (!string.Equals(actualPath, expectedPath, StringComparison.OrdinalIgnoreCase))
             {
                 MessageBox.Show("Executable name has been changed!", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                Environment.Exit(1);
             }
-
-            File.WriteAllText("RetroBat.log", string.Empty); // Clear log file at startup
-            SimpleLogger.Instance.Info("--------------------------------------------------------------");
+            
             SimpleLogger.Instance.Info("[Startup] RetroBat.exe");
 
             CultureInfo windowsCulture = CultureInfo.CurrentUICulture;
@@ -210,9 +233,9 @@ namespace RetroBat
                 commandArray.Add("--draw-framerate");
 
             commandArray.Add("--home");
-            commandArray.Add("\"" + esPath + "\"");
+            commandArray.Add(esPath);
 
-            string args = string.Join(" ", commandArray);
+            string args = string.Join(" ", commandArray.Select(a => a.Contains(" ") ? "\"" + a + "\"" : a));
 
             // Run wiimoteGun if enabled
             if (config.WiimoteGun)
