@@ -256,7 +256,7 @@ namespace RetroBat
                 return;
 
             TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
-            if (config.Autostart && uptime.TotalSeconds < 30)
+            if (config.Autostart && uptime.TotalSeconds < 10)
             {
                 SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a delay.");
                 int delay = config.AutoStartDelay;
@@ -269,31 +269,30 @@ namespace RetroBat
 
                 var exe = Process.Start(start);
 
-                IntPtr esHandle = IntPtr.Zero;
-                int retries = 0;
+                int maxWaitMs = 5000;
+                int intervalMs = 50;
+                int waited = 0;
 
                 // Wait until EmulationStation has a main window handle
-                while (esHandle == IntPtr.Zero && retries < 50) // ~5 seconds if 100ms sleep
+                while (!exe.HasExited && (exe.MainWindowHandle == IntPtr.Zero || !exe.Responding) && waited < maxWaitMs)
                 {
-                    Thread.Sleep(100);
-                    esHandle = GetEmulationStationHandle();
-                    retries++;
+                    Thread.Sleep(intervalMs);
+                    waited += intervalMs;
                 }
 
                 SimpleLogger.Instance.Info("EmulationStation detected, closing splash.");
                 SplashVideo.CloseBlackSplash();
 
+                IntPtr esHandle = exe.MainWindowHandle;
                 if (esHandle != IntPtr.Zero)
                 {
-                    SimpleLogger.Instance.Info("EmulationStation detected, closing splash.");
-                    FocusHelper.BringProcessWindowToFrontWithRetry(
-                        Process.GetProcessById(Process.GetProcessesByName("emulationstation")[0].Id));
+                    FocusHelper.BringProcessWindowToFrontWithRetry(exe);
+                    SimpleLogger.Instance.Info("EmulationStation window is now in the foreground.");
                 }
                 else
                 {
-                    SimpleLogger.Instance.Warning("EmulationStation window not detected, closing splash anyway.");
+                    SimpleLogger.Instance.Warning("EmulationStation window not detected, but process is running.");
                 }
-                SplashVideo.CloseBlackSplash();
 
                 /*exe.WaitForExit();
                 
