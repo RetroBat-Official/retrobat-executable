@@ -162,7 +162,7 @@ namespace RetroBat
             if (config.Autostart)
                 AddToStartup(appFolder, "RetroBat.exe");
             else
-                RemoveFromStartup(appFolder);
+                RemoveFromStartup();
 
             // Reset es_settings
             if (config.ResetConfigMode)
@@ -171,8 +171,9 @@ namespace RetroBat
             // Run splash video if enabled
             if (config.EnableIntro)
             {
-                SplashVideo.RunIntroVideo(config, esPath);
                 SplashVideo.ShowBlackSplash();
+                SplashVideo.RunIntroVideo(config, esPath);
+                
                 if (!config.WaitForVideoEnd && !config.KillVideoWhenESReady)
                     Thread.Sleep(config.VideoDelay);
             }
@@ -268,45 +269,65 @@ namespace RetroBat
                 SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + args);
 
                 var exe = Process.Start(start);
+                if (exe == null)
+                {
+                    SimpleLogger.Instance.Error("Failed to start EmulationStation process.");
+                    return;
+                }
 
-                int maxWaitMs = 5000;
+                // Autoriser ton process à mettre ES en foreground
+                SimpleLogger.Instance.Info($"Allowing foreground for EmulationStation (PID {exe.Id}).");
+                FocusHelper.AllowSetForegroundWindow(exe.Id);
+
+                int maxWaitMs = 10000;
                 int intervalMs = 50;
                 int waited = 0;
 
-                // Wait until EmulationStation has a main window handle
-                while (!exe.HasExited && (exe.MainWindowHandle == IntPtr.Zero || !exe.Responding) && waited < maxWaitMs)
+                IntPtr esHandle = IntPtr.Zero;
+
+                SimpleLogger.Instance.Info("Waiting for EmulationStation main window…");
+                while (!exe.HasExited && esHandle == IntPtr.Zero && waited < maxWaitMs)
                 {
                     Thread.Sleep(intervalMs);
                     waited += intervalMs;
+                    exe.Refresh();
+                    esHandle = exe.MainWindowHandle;
+
+                    if (waited % 1000 == 0)
+                        SimpleLogger.Instance.Info($"…still waiting ({waited / 1000}s)");
                 }
 
-                SimpleLogger.Instance.Info("EmulationStation detected, closing splash.");
                 SplashVideo.CloseBlackSplash();
 
-                IntPtr esHandle = exe.MainWindowHandle;
                 if (esHandle != IntPtr.Zero)
                 {
-                    FocusHelper.BringProcessWindowToFrontWithRetry(exe);
-                    SimpleLogger.Instance.Info("EmulationStation window is now in the foreground.");
+                    SimpleLogger.Instance.Info($"EmulationStation window detected (hWnd={esHandle}). Trying to set foreground…");
+
+                    bool focused = FocusHelper.ForceForeground(esHandle);
+                    if (focused)
+                    {
+                        SimpleLogger.Instance.Info("Foreground successfully set via ForceForeground.");
+                    }
+                    else
+                    {
+                        SimpleLogger.Instance.Warning("ForceForeground failed, applying TopMost trick.");
+                        FocusHelper.ToggleTopMost(esHandle);
+                        SimpleLogger.Instance.Info("TopMost trick applied.");
+                    }
                 }
                 else
                 {
-                    SimpleLogger.Instance.Warning("EmulationStation window not detected, but process is running.");
-                }
-
-                /*exe.WaitForExit();
-                
-                if (exe != null)
-                {
-                    bool success = FocusHelper.BringProcessWindowToFrontWithRetry(exe);
-                    if (!success)
-                        SimpleLogger.Instance.Warning("Failed to bring EmulationStation window to front.");
+                    if (exe.HasExited)
+                        SimpleLogger.Instance.Error("EmulationStation process exited before creating a window.");
                     else
-                        SimpleLogger.Instance.Info("EmulationStation window is now in the foreground.");
-                    Thread.Sleep(1000);
-                }*/
+                        SimpleLogger.Instance.Warning("EmulationStation process is running but no main window detected.");
+                }
             }
-            catch (Exception ex) { SimpleLogger.Instance.Warning("Failed to start EmulationStation: " + ex.Message); }
+            catch (Exception ex)
+            {
+                SimpleLogger.Instance.Warning("Failed to start EmulationStation: " + ex.Message);
+            }
+
 
             SimpleLogger.Instance.Info("All is good, enjoy, quitting RetroBat launcher.");
         }
@@ -404,7 +425,7 @@ namespace RetroBat
             }
         }
 
-        private static void RemoveFromStartup(string appPath)
+        private static void RemoveFromStartup()
         {
             SimpleLogger.Instance.Info("Ensuring RetroBat does not launch at startup.");
 
