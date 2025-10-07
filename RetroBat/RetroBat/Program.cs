@@ -169,10 +169,23 @@ namespace RetroBat
                 ResetESConfig(appFolder);
 
             // Run splash video if enabled
+            var screens = Screen.AllScreens;
+            Screen targetScreen = Screen.PrimaryScreen;
+
+            if (config.MonitorIndex > 0 && config.MonitorIndex < screens.Length)
+            {
+                targetScreen = screens[config.MonitorIndex];
+                SimpleLogger.Instance.Info($"Using monitor index {config.MonitorIndex} ({targetScreen.DeviceName}).");
+            }
+            else
+            {
+                SimpleLogger.Instance.Info("Monitor index out of range or 0, using primary screen.");
+            }
+
             if (config.EnableIntro)
             {
-                SplashVideo.ShowBlackSplash();
-                SplashVideo.RunIntroVideo(config, esPath);
+                SplashVideo.ShowBlackSplash(targetScreen);
+                SplashVideo.RunIntroVideo(config, esPath, targetScreen);
                 
                 if (!config.WaitForVideoEnd && !config.KillVideoWhenESReady)
                     Thread.Sleep(config.VideoDelay);
