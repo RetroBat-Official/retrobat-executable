@@ -20,7 +20,7 @@ namespace RetroBat
         private bool _letVideoRun;
         public bool _mediaEnded = false;
 
-        public VideoPlayerForm(string videoPath, string path, bool gamepadKill = false, bool killVideoWhenESReady = false)
+        public VideoPlayerForm(string videoPath, string path, bool gamepadKill = false, bool killVideoWhenESReady = false, Screen targetScreen = null)
         {
             _gamepadKill = gamepadKill;
             _letVideoRun = !killVideoWhenESReady;
@@ -31,10 +31,12 @@ namespace RetroBat
                 catch { }
             }
 
+            var screen = targetScreen ?? Screen.PrimaryScreen;
+
             this.BackColor = System.Drawing.Color.Black;
             this.FormBorderStyle = FormBorderStyle.None;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.WindowState = FormWindowState.Maximized;
+            this.StartPosition = FormStartPosition.Manual;
+            this.Bounds = screen.Bounds;
             this.ShowInTaskbar = false;
             this.TopLevel = true;
             this.TopMost = true;
