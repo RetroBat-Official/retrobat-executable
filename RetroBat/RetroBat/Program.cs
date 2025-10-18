@@ -159,6 +159,7 @@ namespace RetroBat
             SetGLVersion(esPath, config.OpenGL2_1);
 
             // Set RetroBat to start at startup
+            CleanupStartup();
             if (config.Autostart == 1)
             {
                 AddToStartupFolder(appFolder, "RetroBat.exe");
@@ -515,6 +516,21 @@ namespace RetroBat
             {
                 SimpleLogger.Instance.Warning("Failed to remove RetroBat from Startup folder: " + ex.Message);
             }
+        }
+
+        private static void CleanupStartup()
+        {
+            try
+            {
+                string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+                string linkStartup = Path.Combine(startupFolder, "RetroBat.lnk");
+
+                if (File.Exists(linkStartup))
+                {
+                    try { File.Delete(linkStartup); } catch { }
+                }
+            }
+            catch { }
         }
 
         private static void RemoveFromStartupReg()
