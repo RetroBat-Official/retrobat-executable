@@ -20,9 +20,6 @@ namespace RetroBat
         [STAThread]
         static void Main()
         {
-            File.WriteAllText("RetroBat.log", string.Empty); // Clear log file at startup
-            SimpleLogger.Instance.Info("--------------------------------------------------------------");
-
             var esProcess = Process.GetProcessesByName("emulationstation").FirstOrDefault();
             if (esProcess != null)
             {
@@ -43,6 +40,9 @@ namespace RetroBat
 
             string appFolder = AppDomain.CurrentDomain.BaseDirectory;
             Directory.SetCurrentDirectory(appFolder);
+
+            File.WriteAllText(Path.Combine(appFolder, "RetroBat.log"), string.Empty); // Clear log file at startup
+            SimpleLogger.Instance.Info("--------------------------------------------------------------");
 
             string actualPath = Process.GetCurrentProcess().MainModule.FileName;
             string expectedPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RetroBat.exe");
@@ -159,10 +159,21 @@ namespace RetroBat
             SetGLVersion(esPath, config.OpenGL2_1);
 
             // Set RetroBat to start at startup
-            if (config.Autostart)
-                AddToStartup(appFolder, "RetroBat.exe");
+            if (config.Autostart == 1)
+            {
+                AddToStartupFolder(appFolder, "RetroBat.exe");
+                RemoveFromStartupReg();
+            }
+            else if (config.Autostart == 2)
+            {
+                AddToStartupReg(appFolder, "RetroBat.exe");
+                RemoveFromStartupFolder("RetroBat");
+            }
             else
-                RemoveFromStartup();
+            {
+                RemoveFromStartupReg();
+                RemoveFromStartupFolder("RetroBat");
+            }
 
             // Reset es_settings
             if (config.ResetConfigMode)
@@ -270,7 +281,7 @@ namespace RetroBat
                 return;
 
             TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
-            if (config.Autostart && uptime.TotalSeconds < 10)
+            if (config.Autostart != 0 && uptime.TotalSeconds < 10)
             {
                 SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a delay.");
                 int delay = config.AutoStartDelay;
@@ -327,6 +338,25 @@ namespace RetroBat
                         FocusHelper.ToggleTopMost(esHandle);
                         SimpleLogger.Instance.Info("TopMost trick applied.");
                     }
+
+                    if (config.FocusDelay != 0)
+                    {
+                        string delay = config.FocusDelay.ToString();
+                        SimpleLogger.Instance.Info("Waiting " + delay + " to set ES to focus again.");
+                        Thread.Sleep(config.FocusDelay);
+
+                        bool refocused = FocusHelper.ForceForeground(esHandle);
+                        if (refocused)
+                        {
+                            SimpleLogger.Instance.Info("Delay foreground successfully set via ForceForeground.");
+                        }
+                        else
+                        {
+                            SimpleLogger.Instance.Warning("Delay ForceForeground failed, applying TopMost trick.");
+                            FocusHelper.ToggleTopMost(esHandle);
+                            SimpleLogger.Instance.Info("TopMost trick applied.");
+                        }
+                    }
                 }
                 else
                 {
@@ -341,17 +371,7 @@ namespace RetroBat
                 SimpleLogger.Instance.Warning("Failed to start EmulationStation: " + ex.Message);
             }
 
-
             SimpleLogger.Instance.Info("All is good, enjoy, quitting RetroBat launcher.");
-        }
-
-        private static IntPtr GetEmulationStationHandle()
-        {
-            var esProcess = Process.GetProcessesByName("emulationstation").FirstOrDefault();
-            if (esProcess == null)
-                return IntPtr.Zero;
-
-            return esProcess.MainWindowHandle;
         }
 
         private static RetroBatConfig GetConfigValues(IniFile ini)
@@ -368,7 +388,6 @@ namespace RetroBat
                 WaitForVideoEnd = GetOptBoolean(IniFile.GetOptionValue(ini, "SplashScreen", "WaitForVideoEnd", "true")),
                 FileName = IniFile.GetOptionValue(ini, "SplashScreen", "FileName", "retrobat-neon.mp4"),
                 FilePath = IniFile.GetOptionValue(ini, "SplashScreen", "FilePath", "default"),
-                Autostart = GetOptBoolean(IniFile.GetOptionValue(ini, "RetroBat", "Autostart", "false")),
                 Fullscreen = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "Fullscreen", "true")),
                 FullscreenBorderless = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "FullscreenBorderless", "true")),
                 ForceFullscreenRes = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "ForceFullscreenRes", "false")),
@@ -378,11 +397,21 @@ namespace RetroBat
                 VSync = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "VSync", "true")),
                 DrawFramerate = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "DrawFramerate", "false")),
             };
-            
+
+            if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "Autostart", "0"), out int Autostart))
+                config.Autostart = Autostart;
+            else
+                config.Autostart = 0;
+
             if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "AutoStartDelay", "1000"), out int startdelay))
                 config.AutoStartDelay = startdelay;
             else
                 config.AutoStartDelay = 1000;
+
+            if (int.TryParse(IniFile.GetOptionValue(ini, "EmulationStation", "FocusDelay", "2000"), out int FocusDelay))
+                config.FocusDelay = FocusDelay;
+            else
+                config.FocusDelay = 1000;
 
             if (int.TryParse(IniFile.GetOptionValue(ini, "SplashScreen", "VideoDelay", "5000"), out int VideoDelay))
                 config.VideoDelay = VideoDelay;
@@ -420,16 +449,22 @@ namespace RetroBat
                 return false;
         }
 
-        private static void AddToStartup(string appPath, string appExe)
+        private static void AddToStartupReg(string appPath, string appExe)
         {
             SimpleLogger.Instance.Info("Setting RetroBat to launch at startup.");
 
             string batPath = Path.Combine(appPath, appExe);
 
+            string regValue = string.Format(
+            "cmd.exe /c \"cd /d {0} && start \"\" \"{1}\"\"\"",
+            appPath,
+            batPath
+        );
+
             try
             {
                 RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
-                key.SetValue("RetroBat", "\"" + batPath + "\"");
+                key.SetValue("RetroBat", regValue);
                 SimpleLogger.Instance.Info("RetroBat set in registry to startup.");
             }
             catch (Exception ex)
@@ -438,7 +473,51 @@ namespace RetroBat
             }
         }
 
-        private static void RemoveFromStartup()
+        private static void AddToStartupFolder(string exePath, string shortcutName)
+        {
+            try
+            {
+                string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+                string exeName = Path.GetFileNameWithoutExtension(shortcutName);
+                string batPath = Path.Combine(startupFolder, exeName + ".bat");
+                string exe = Path.Combine(exePath, shortcutName);
+
+                // Write a simple batch file to start RetroBat
+                string batContent = $"@echo off{Environment.NewLine}cd /d \"{exePath}\"{Environment.NewLine}\"{exe}\"";
+                File.WriteAllText(batPath, batContent);
+
+                SimpleLogger.Instance.Info("RetroBat batch added to Startup folder: " + batPath);
+            }
+            catch (Exception ex)
+            {
+                SimpleLogger.Instance.Warning("Failed to add RetroBat to Startup folder: " + ex.Message);
+            }
+        }
+
+        private static void RemoveFromStartupFolder(string shortcutName)
+        {
+            try
+            {
+                string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+                string batPath = Path.Combine(startupFolder, shortcutName + ".bat");
+
+                if (File.Exists(batPath))
+                {
+                    File.Delete(batPath);
+                    SimpleLogger.Instance.Info("RetroBat removed from Startup folder: " + batPath);
+                }
+                else
+                {
+                    SimpleLogger.Instance.Info("RetroBat startup batch not found, nothing to remove.");
+                }
+            }
+            catch (Exception ex)
+            {
+                SimpleLogger.Instance.Warning("Failed to remove RetroBat from Startup folder: " + ex.Message);
+            }
+        }
+
+        private static void RemoveFromStartupReg()
         {
             SimpleLogger.Instance.Info("Ensuring RetroBat does not launch at startup.");
 
