@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -18,7 +18,7 @@ namespace RetroBat
     class Program
     {
         [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
             var esProcess = Process.GetProcessesByName("emulationstation").FirstOrDefault();
             if (esProcess != null)
@@ -42,7 +42,7 @@ namespace RetroBat
             Directory.SetCurrentDirectory(appFolder);
 
             File.WriteAllText(Path.Combine(appFolder, "RetroBat.log"), string.Empty); // Clear log file at startup
-            SimpleLogger.Instance.Info("--------------------------------------------------------------");
+            SimpleLogger.Instance.Info("------------------------------------------------------");
 
             string actualPath = Process.GetCurrentProcess().MainModule.FileName;
             string expectedPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RetroBat.exe");
@@ -54,7 +54,7 @@ namespace RetroBat
             {
                 MessageBox.Show("Executable name has been changed!", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-            
+
             SimpleLogger.Instance.Info("[Startup] RetroBat.exe");
 
             CultureInfo windowsCulture = CultureInfo.CurrentUICulture;
@@ -74,7 +74,7 @@ namespace RetroBat
                     File.WriteAllText(iniPath, iniDefault);
                     SimpleLogger.Instance.Info("ini file written to " + iniPath);
                 }
-                catch { SimpleLogger.Instance.Warning("Impossible to create ini file."); }
+                catch { SimpleLogger.Instance.Warning("Impossible to create inifile."); }
             }
 
             // Check existence of required files
@@ -198,7 +198,7 @@ namespace RetroBat
             {
                 SplashVideo.ShowBlackSplash(targetScreen);
                 SplashVideo.RunIntroVideo(config, esPath, targetScreen);
-                
+
                 if (!config.WaitForVideoEnd && !config.KillVideoWhenESReady)
                     Thread.Sleep(config.VideoDelay);
             }
@@ -261,7 +261,7 @@ namespace RetroBat
             commandArray.Add("--home");
             commandArray.Add(esPath);
 
-            string args = string.Join(" ", commandArray.Select(a => a.Contains(" ") ? "\"" + a + "\"" : a));
+            string args_es = string.Join(" ", commandArray.Select(a => a.Contains(" ") ? "\"" + a + "\"" : a));
 
             // Run wiimoteGun if enabled
             if (config.WiimoteGun)
@@ -274,7 +274,7 @@ namespace RetroBat
             {
                 FileName = emulationStationExe,
                 WorkingDirectory = esPath,
-                Arguments = args,
+                Arguments = args_es,
                 UseShellExecute = false
             };
 
@@ -291,7 +291,7 @@ namespace RetroBat
 
             try
             {
-                SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + args);
+                SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + args_es);
 
                 var exe = Process.Start(start);
                 if (exe == null)
@@ -328,34 +328,54 @@ namespace RetroBat
                 {
                     SimpleLogger.Instance.Info($"EmulationStation window detected (hWnd={esHandle}). Trying to set foreground…");
 
-                    bool focused = FocusHelper.ForceForeground(esHandle);
-                    if (focused)
+                    bool isExternalLauncher = args.Contains("--external-launcher", StringComparer.OrdinalIgnoreCase);
+
+                    if (isExternalLauncher)
                     {
-                        SimpleLogger.Instance.Info("Foreground successfully set via ForceForeground.");
+                        SimpleLogger.Instance.Info("Launched by an external program (--external-launcher detected), skipping internal focus logic.");
                     }
                     else
                     {
-                        SimpleLogger.Instance.Warning("ForceForeground failed, applying TopMost trick.");
-                        FocusHelper.ToggleTopMost(esHandle);
-                        SimpleLogger.Instance.Info("TopMost trick applied.");
-                    }
+																										 
+															
+																			 
+					 
 
-                    if (config.FocusDelay != 0)
-                    {
-                        string delay = config.FocusDelay.ToString();
-                        SimpleLogger.Instance.Info("Waiting " + delay + " to set ES to focus again.");
-                        Thread.Sleep(config.FocusDelay);
+											   
+					 
+																	
+																									  
+														
 
-                        bool refocused = FocusHelper.ForceForeground(esHandle);
-                        if (refocused)
+                        bool focused = FocusHelper.ForceForeground(esHandle);
+                        if (focused)
                         {
-                            SimpleLogger.Instance.Info("Delay foreground successfully set via ForceForeground.");
+                            SimpleLogger.Instance.Info("Foreground successfully set via ForceForeground.");
                         }
                         else
                         {
-                            SimpleLogger.Instance.Warning("Delay ForceForeground failed, applying TopMost trick.");
+                            SimpleLogger.Instance.Warning("ForceForeground failed, applying TopMost trick.");
                             FocusHelper.ToggleTopMost(esHandle);
                             SimpleLogger.Instance.Info("TopMost trick applied.");
+                        }
+
+                        if (config.FocusDelay != 0)
+                        {
+                            string delay = config.FocusDelay.ToString();
+                            SimpleLogger.Instance.Info("Waiting " + delay + " to set ES to focus again.");
+                            Thread.Sleep(config.FocusDelay);
+
+                            bool refocused = FocusHelper.ForceForeground(esHandle);
+                            if (refocused)
+                            {
+                                SimpleLogger.Instance.Info("Delay foreground successfully set via ForceForeground.");
+                            }
+                            else
+                            {
+                                SimpleLogger.Instance.Warning("Delay ForceForeground failed, applying TopMost trick.");
+                                FocusHelper.ToggleTopMost(esHandle);
+                                SimpleLogger.Instance.Info("TopMost trick applied.");
+                            }
                         }
                     }
                 }
@@ -631,7 +651,7 @@ namespace RetroBat
                     File.WriteAllText(rbIniFile, iniDefault);
                     SimpleLogger.Instance.Info("ini file regenrated with default values.");
                 }
-                catch { SimpleLogger.Instance.Warning("Impossible to create ini file."); }
+                catch { SimpleLogger.Instance.Warning("Impossible to create inifile."); }
             }
             catch { SimpleLogger.Instance.Warning("Could not reinitialize ini file."); }
         }
