@@ -43,13 +43,13 @@ namespace RetroBat
 [RetroBat]
 
 ; At startup RetroBat will detect or not the language used in Windows to set automatically the same language in the frontend and RetroArch emulator.
-LanguageDetection=0
+LanguageDetection=1
 
 ; At startup RetroBat will reset the default config files options of emulationstation and retrobat.ini.
 ; Use at your own risk.	
 ResetConfigMode=0
 
-; Run automatically RetroBat at Windows startup.
+; Run automatically RetroBat at Windows startup (0=NO 1=STARTUP 2=REGISTRY).
 Autostart=0
 
 ; Set the Start Delay for RetroBat to start automatically at startup (in milliseconds).
@@ -96,6 +96,9 @@ FullscreenBorderless=1
 
 ; Force the fullscreen resolution with the parameters set at WindowXSize and WindowYSize.
 ForceFullscreenRes=0
+
+; Force to retry to get focus after a certain amount of time (milliseconds).
+FocusDelay=2000
 
 ; The frontend will parse only the gamelist.xml files in roms directories to display available games.
 ; If files are added when this option is enabled, they will not appear in the gamelists of the frontend. The option must be enabled again to display new entries properly.
@@ -647,7 +650,7 @@ DrawFramerate=0";
     {
         public bool LanguageDetection { get; set; }
         public bool ResetConfigMode { get; set; }
-        public bool Autostart { get; set; }
+        public int Autostart { get; set; }
         public int AutoStartDelay { get; set; }
         public bool WiimoteGun { get; set; }
         public bool EnableIntro { get; set; }
@@ -661,6 +664,7 @@ DrawFramerate=0";
         public bool Fullscreen { get; set; }
         public bool FullscreenBorderless { get; set; }
         public bool ForceFullscreenRes { get; set; }
+        public int FocusDelay { get; set; }
         public bool GameListOnly { get; set; }
         public int InterfaceMode { get; set; }
         public int MonitorIndex { get; set; }

@@ -1,22 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Windows.Forms;
-using System.Windows.Media;
-using System.Drawing;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrayNotify;
 
 namespace RetroBat
 {
     internal class SplashVideo
     {
         private static Form _blackSplashForm;
-        public static void RunIntroVideo(RetroBatConfig config, string esPath)
+        public static void RunIntroVideo(RetroBatConfig config, string esPath, Screen targetScreen = null)
         {
             if (!config.EnableIntro)
                 return;
@@ -72,7 +64,7 @@ namespace RetroBat
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                using (var form = new VideoPlayerForm(videoFile, esPath, config.GamepadVideoKill, config.KillVideoWhenESReady))
+                using (var form = new VideoPlayerForm(videoFile, esPath, config.GamepadVideoKill, config.KillVideoWhenESReady, targetScreen))
                 {
                     form.FormClosed += (s, e) =>
                     {
@@ -90,7 +82,7 @@ namespace RetroBat
                 videoDone.WaitOne();
             }
         }
-        public static void ShowBlackSplash()
+        public static void ShowBlackSplash(Screen targetScreen = null)
         {
             if (_blackSplashForm != null)
                 return;
@@ -102,11 +94,14 @@ namespace RetroBat
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 
+                var screen = targetScreen ?? Screen.PrimaryScreen;
+
                 _blackSplashForm = new Form
                 {
                     BackColor = System.Drawing.Color.Black,
                     FormBorderStyle = FormBorderStyle.None,
-                    WindowState = FormWindowState.Maximized,
+                    StartPosition = FormStartPosition.Manual,
+                    Bounds = screen.Bounds,
                     TopMost = true,
                     ShowInTaskbar = false
                 };

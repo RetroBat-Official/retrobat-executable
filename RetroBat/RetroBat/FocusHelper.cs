@@ -27,14 +27,25 @@ namespace RetroBat
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
-        
+
         [DllImport("user32.dll")]
-        static extern bool AllowSetForegroundWindow(int dwProcessId);
+        private static extern bool SetActiveWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern bool AllowSetForegroundWindow(int dwProcessId);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         const int SW_MINIMIZE = 6;
         const int SW_RESTORE = 9;
+        static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+        const uint SWP_NOMOVE = 0x0002;
+        const uint SWP_NOSIZE = 0x0001;
+        const uint SWP_SHOWWINDOW = 0x0040;
 
-        public static bool BringProcessWindowToFrontWithRetry(Process proc, int attempts = 3, int delayMs = 2000)
+        public static bool BringProcessWindowToFrontWithRetry(Process proc, int attempts = 5, int delayMs = 300)
         {
             bool success = false;
             for (int i = 0; i < attempts; i++)
@@ -86,19 +97,28 @@ namespace RetroBat
                     return true;
                 }
 
-                if (attempt == 1)
-                {
-                    ShowWindow(hWnd, SW_RESTORE);
-                }
-                else
-                {
-                    ShowWindow(hWnd, SW_MINIMIZE);
-                    Thread.Sleep(5);
-                    ShowWindow(hWnd, SW_RESTORE);
-                }
+                uint targetThread = GetWindowThreadProcessId(hWnd, out _);
+                uint fgThread = GetWindowThreadProcessId(foregroundWnd, out _);
+                uint thisThread = GetCurrentThreadId();
 
+                AttachThreadInput(thisThread, targetThread, true);
+                AttachThreadInput(thisThread, fgThread, true);
+
+                ShowWindow(hWnd, SW_RESTORE);
                 AllowSetForegroundWindow(proc.Id);
                 bool success = SetForegroundWindow(hWnd);
+
+                AttachThreadInput(thisThread, targetThread, false);
+                AttachThreadInput(thisThread, fgThread, false);
+
+                if (!success)
+                {
+                    // fallback : topmost trick
+                    SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+                    Thread.Sleep(50);
+                    SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+                    success = SetForegroundWindow(hWnd);
+                }
 
                 if (success)
                 {
@@ -113,6 +133,51 @@ namespace RetroBat
 
             SimpleLogger.Instance.Warning("Failed to bring window to front after multiple attempts.");
             return false;
+        }
+
+        public static bool ForceForeground(IntPtr hWnd)
+        {
+            try
+            {
+                IntPtr fgWnd = GetForegroundWindow();
+                if (fgWnd == hWnd)
+                {
+                    SimpleLogger.Instance.Info("Window is already in foreground.");
+                    return true;
+                }
+
+                uint fgThread = GetWindowThreadProcessId(fgWnd, out _);
+                uint thisThread = GetCurrentThreadId();
+                uint targetThread = GetWindowThreadProcessId(hWnd, out _);
+
+                SimpleLogger.Instance.Info($"Attaching thread input (this={thisThread}, fg={fgThread}, target={targetThread}).");
+
+                AttachThreadInput(thisThread, fgThread, true);
+                AttachThreadInput(thisThread, targetThread, true);
+
+                bool result = SetForegroundWindow(hWnd);
+                SetActiveWindow(hWnd);
+
+                AttachThreadInput(thisThread, fgThread, false);
+                AttachThreadInput(thisThread, targetThread, false);
+
+                SimpleLogger.Instance.Info($"SetForegroundWindow returned {result}.");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                SimpleLogger.Instance.Warning("ForceForeground exception: " + ex.Message);
+                return false;
+            }
+        }
+
+        public static void ToggleTopMost(IntPtr hWnd)
+        {
+            SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+            Thread.Sleep(50);
+            SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
         }
     }
 }

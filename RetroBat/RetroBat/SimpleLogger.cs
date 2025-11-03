@@ -33,7 +33,8 @@ namespace RetroBat
         private SimpleLogger()
         {
             datetimeFormat = "yyyy-MM-dd HH:mm:ss.fff";
-            logFilename = Path.ChangeExtension(System.Reflection.Assembly.GetEntryAssembly().Location, FILE_EXT);
+            string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+            logFilename = Path.Combine(Path.GetDirectoryName(exePath), Path.GetFileNameWithoutExtension(exePath) + FILE_EXT);
 
             if (File.Exists(logFilename))
             {

@@ -3,12 +3,16 @@
   <a href="https://www.retrobat.org/"><img src="https://raw.githubusercontent.com/kaylh/RetroBat/master/system/resources/retrobat_logo.svg" alt="retrobat" width="500"></a>
 </h1>
 
-# WORK IN PROGRESS
+# RETROBAT.EXE REPOSITORY
 
-The repository contains the draft code for the future RetroBat executable in .net.
+The repository contains the code for the RetroBat executable.
 
-This is still under heavy work and intents to replace the existing mfa-launcher.
-
+Main functionalities of the executable:
+- Read retrobat.ini settings file
+- Checks existence of necessary files for RetroBat to run succesfully
+- Run intro video
+- Launch emulationstation.exe with arguments based on retrobat.ini settings
+- Sets focus on emulationstation frontend
 
 ## 🦇 RetroBat Team
 

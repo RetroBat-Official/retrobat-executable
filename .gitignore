@@ -10,3 +10,4 @@
 /RetroBat/RetroBat/*.csproj.user
 *.suo
 *RetroBat.exe
+*RetroBat.pdb

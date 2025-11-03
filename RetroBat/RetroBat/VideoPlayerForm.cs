@@ -20,7 +20,7 @@ namespace RetroBat
         private bool _letVideoRun;
         public bool _mediaEnded = false;
 
-        public VideoPlayerForm(string videoPath, string path, bool gamepadKill = false, bool killVideoWhenESReady = false)
+        public VideoPlayerForm(string videoPath, string path, bool gamepadKill = false, bool killVideoWhenESReady = false, Screen targetScreen = null)
         {
             _gamepadKill = gamepadKill;
             _letVideoRun = !killVideoWhenESReady;
@@ -31,10 +31,12 @@ namespace RetroBat
                 catch { }
             }
 
+            var screen = targetScreen ?? Screen.PrimaryScreen;
+
             this.BackColor = System.Drawing.Color.Black;
             this.FormBorderStyle = FormBorderStyle.None;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.WindowState = FormWindowState.Maximized;
+            this.StartPosition = FormStartPosition.Manual;
+            this.Bounds = screen.Bounds;
             this.ShowInTaskbar = false;
             this.TopLevel = true;
             this.TopMost = true;
@@ -63,6 +65,7 @@ namespace RetroBat
             
             _mediaElement.MediaOpened += (s, e) =>
             {
+                ForceForeground();
                 SimpleLogger.Instance.Info("Media opened.");
                 this.Opacity = 1;
                 this.TopMost = true;
@@ -98,7 +101,7 @@ namespace RetroBat
                     this.TopMost = true;
                     this.Activate();
                     this.BringToFront();
-                    _timer = new System.Windows.Forms.Timer() { Interval = 2 };
+                    _timer = new System.Windows.Forms.Timer() { Interval = 50 };
                     _timer.Tick += OnTimer;
                     _timer.Start();
                 }
@@ -107,7 +110,7 @@ namespace RetroBat
 
             this.Shown += (s, e) =>
             {
-                this.TopMost = false;
+                ForceForeground();
                 this.TopMost = true;
                 this.BringToFront();
             };
@@ -117,10 +120,7 @@ namespace RetroBat
         {
             if (this.IsHandleCreated && this.Handle != GetForegroundWindow())
             {
-                this.TopMost = false;
-                this.TopMost = true;
-                this.BringToFront();
-                SetForegroundWindow(this.Handle);
+                ForceForeground();
                 SetActiveWindow(this.Handle);
             }
 
@@ -144,6 +144,8 @@ namespace RetroBat
                 _timer = null;
                 _mediaElement?.Stop();
                 SimpleLogger.Instance.Info("Video stopped.");
+                _mediaElement?.Close();
+                _mediaElement = null;
                 Close();
             }
         }
@@ -194,6 +196,59 @@ namespace RetroBat
 
         private int[] keysToCheck = new int[] { VK_LBUTTON, VK_RBUTTON, VK_SPACE, VK_ESCAPE, VK_ENTER, VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, VK_W, VK_A, VK_S, VK_D };
         #endregion
-    }
 
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
+        [DllImport("user32.dll")]
+        private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+        private void ForceForeground()
+        {
+            IntPtr hWnd = this.Handle;
+            IntPtr foregroundWnd = GetForegroundWindow();
+            if (hWnd == foregroundWnd) return;
+
+            uint targetThread = GetWindowThreadProcessId(hWnd, out _);
+            uint fgThread = GetWindowThreadProcessId(foregroundWnd, out _);
+            uint thisThread = GetCurrentThreadId();
+
+            AttachThreadInput(thisThread, targetThread, true);
+            AttachThreadInput(thisThread, fgThread, true);
+
+            this.TopMost = true;
+            this.BringToFront();
+            SetForegroundWindow(hWnd);
+            SetActiveWindow(hWnd);
+
+            AttachThreadInput(thisThread, targetThread, false);
+            AttachThreadInput(thisThread, fgThread, false);
+
+            if (GetForegroundWindow() != hWnd)
+            {
+                SimpleLogger.Instance.Warning("Failed to force foreground, applying TopMost trick.");
+                ToggleTopMost();
+            }
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+            int X, int Y, int cx, int cy, uint uFlags);
+
+        static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+        const uint SWP_NOMOVE = 0x0002;
+        const uint SWP_NOSIZE = 0x0001;
+        const uint SWP_SHOWWINDOW = 0x0040;
+
+        private void ToggleTopMost()
+        {
+            SetWindowPos(this.Handle, HWND_TOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+            System.Threading.Thread.Sleep(10);
+            SetWindowPos(this.Handle, HWND_NOTOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+        }
+    }
 }
