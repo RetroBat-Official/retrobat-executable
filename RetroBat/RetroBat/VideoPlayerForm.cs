@@ -38,10 +38,11 @@ namespace RetroBat
             this.StartPosition = FormStartPosition.Manual;
             this.Bounds = screen.Bounds;
             this.ShowInTaskbar = false;
-            this.TopLevel = true;
             this.TopMost = true;
+            this.TopLevel = true;
             this.Opacity = 0;
             this.KeyPreview = true;
+            this.WindowState = FormWindowState.Normal;
 
 #if DEBUG            
             this.WindowState = FormWindowState.Normal;
@@ -57,7 +58,7 @@ namespace RetroBat
             {
                 LoadedBehavior = MediaState.Manual,
                 UnloadedBehavior = MediaState.Manual,
-                Stretch = Stretch.Uniform,
+                Stretch = Stretch.UniformToFill,
                 Source = new Uri(videoPath, UriKind.Absolute)
             };
 
