@@ -18,7 +18,7 @@ namespace RetroBat
     class Program
     {
         [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
             var esProcess = Process.GetProcessesByName("emulationstation").FirstOrDefault();
             if (esProcess != null)
@@ -37,6 +37,8 @@ namespace RetroBat
                     return;
                 }
             }
+
+            bool isExternalLauncher = args.Contains("--external-launcher", StringComparer.OrdinalIgnoreCase);
 
             string appFolder = AppDomain.CurrentDomain.BaseDirectory;
             Directory.SetCurrentDirectory(appFolder);
@@ -197,7 +199,7 @@ namespace RetroBat
             if (config.EnableIntro)
             {
                 SplashVideo.ShowBlackSplash(targetScreen);
-                SplashVideo.RunIntroVideo(config, esPath, targetScreen);
+                SplashVideo.RunIntroVideo(config, esPath, targetScreen, isExternalLauncher);
                 
                 if (!config.WaitForVideoEnd && !config.KillVideoWhenESReady)
                     Thread.Sleep(config.VideoDelay);
@@ -261,7 +263,7 @@ namespace RetroBat
             commandArray.Add("--home");
             commandArray.Add(esPath);
 
-            string args = string.Join(" ", commandArray.Select(a => a.Contains(" ") ? "\"" + a + "\"" : a));
+            string elargs = string.Join(" ", commandArray.Select(a => a.Contains(" ") ? "\"" + a + "\"" : a));
 
             // Run wiimoteGun if enabled
             if (config.WiimoteGun)
@@ -274,7 +276,7 @@ namespace RetroBat
             {
                 FileName = emulationStationExe,
                 WorkingDirectory = esPath,
-                Arguments = args,
+                Arguments = elargs,
                 UseShellExecute = false
             };
 
@@ -300,10 +302,6 @@ namespace RetroBat
                     return;
                 }
 
-                // Autoriser ton process à mettre ES en foreground
-                SimpleLogger.Instance.Info($"Allowing foreground for EmulationStation (PID {exe.Id}).");
-                FocusHelper.AllowSetForegroundWindow(exe.Id);
-
                 int maxWaitMs = 10000;
                 int intervalMs = 50;
                 int waited = 0;
@@ -323,41 +321,14 @@ namespace RetroBat
                 }
 
                 SplashVideo.CloseBlackSplash();
+                Thread.Sleep(300);
+                if (!isExternalLauncher)
+                    FocusHelper.BringProcessWindowToFront(exe);
 
-                if (esHandle != IntPtr.Zero)
+                if (!exe.HasExited && !isExternalLauncher && config.FocusDelay > 0)
                 {
-                    SimpleLogger.Instance.Info($"EmulationStation window detected (hWnd={esHandle}). Trying to set foreground…");
-
-                    bool focused = FocusHelper.ForceForeground(esHandle);
-                    if (focused)
-                    {
-                        SimpleLogger.Instance.Info("Foreground successfully set via ForceForeground.");
-                    }
-                    else
-                    {
-                        SimpleLogger.Instance.Warning("ForceForeground failed, applying TopMost trick.");
-                        FocusHelper.ToggleTopMost(esHandle);
-                        SimpleLogger.Instance.Info("TopMost trick applied.");
-                    }
-
-                    if (config.FocusDelay != 0)
-                    {
-                        string delay = config.FocusDelay.ToString();
-                        SimpleLogger.Instance.Info("Waiting " + delay + " to set ES to focus again.");
-                        Thread.Sleep(config.FocusDelay);
-
-                        bool refocused = FocusHelper.ForceForeground(esHandle);
-                        if (refocused)
-                        {
-                            SimpleLogger.Instance.Info("Delay foreground successfully set via ForceForeground.");
-                        }
-                        else
-                        {
-                            SimpleLogger.Instance.Warning("Delay ForceForeground failed, applying TopMost trick.");
-                            FocusHelper.ToggleTopMost(esHandle);
-                            SimpleLogger.Instance.Info("TopMost trick applied.");
-                        }
-                    }
+                    Thread.Sleep(config.FocusDelay);
+                    FocusHelper.BringProcessWindowToFront(exe);
                 }
                 else
                 {

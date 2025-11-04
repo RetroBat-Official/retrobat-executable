@@ -38,6 +38,9 @@
   <PropertyGroup>
     <StartupObject />
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
@@ -71,6 +74,7 @@
     <Compile Include="XInput.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.manifest" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

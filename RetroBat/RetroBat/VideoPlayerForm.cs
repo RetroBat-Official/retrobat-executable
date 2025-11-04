@@ -18,10 +18,12 @@ namespace RetroBat
 
         private bool _gamepadKill;
         private bool _letVideoRun;
+        private bool _externalLauncher;
         public bool _mediaEnded = false;
 
-        public VideoPlayerForm(string videoPath, string path, bool gamepadKill = false, bool killVideoWhenESReady = false, Screen targetScreen = null)
+        public VideoPlayerForm(string videoPath, string path, bool gamepadKill = false, bool killVideoWhenESReady = false, Screen targetScreen = null, bool externalLauncher = false)
         {
+            _externalLauncher = externalLauncher;
             _gamepadKill = gamepadKill;
             _letVideoRun = !killVideoWhenESReady;
             _path = System.IO.Path.Combine(path, ".emulationstation", "tmp", "emulationstation.ready");
@@ -38,10 +40,11 @@ namespace RetroBat
             this.StartPosition = FormStartPosition.Manual;
             this.Bounds = screen.Bounds;
             this.ShowInTaskbar = false;
-            this.TopLevel = true;
             this.TopMost = true;
+            this.TopLevel = true;
             this.Opacity = 0;
             this.KeyPreview = true;
+            this.WindowState = FormWindowState.Normal;
 
 #if DEBUG            
             this.WindowState = FormWindowState.Normal;
@@ -57,7 +60,7 @@ namespace RetroBat
             {
                 LoadedBehavior = MediaState.Manual,
                 UnloadedBehavior = MediaState.Manual,
-                Stretch = Stretch.Uniform,
+                Stretch = Stretch.UniformToFill,
                 Source = new Uri(videoPath, UriKind.Absolute)
             };
 
@@ -118,12 +121,6 @@ namespace RetroBat
 
         private void OnTimer(object sender, EventArgs e)
         {
-            if (this.IsHandleCreated && this.Handle != GetForegroundWindow())
-            {
-                ForceForeground();
-                SetActiveWindow(this.Handle);
-            }
-
             bool gamepadButtonPressed = _gamepadKill && XInput.IsFaceButtonPressed();
             bool inputDetected = keysToCheck.Any(k => GetAsyncKeyState(k) < 0);
             bool fileTriggered = File.Exists(_path) && !_letVideoRun;
@@ -159,9 +156,21 @@ namespace RetroBat
 
             base.Dispose(disposing);
 
-            var exe = Process.GetProcessesByName("emulationstation").FirstOrDefault();
-            if (exe != null)
-                FocusHelper.BringProcessWindowToFrontWithRetry(exe);
+            if (!_externalLauncher)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    var exe = Process.GetProcessesByName("emulationstation").FirstOrDefault();
+                    if (exe != null)
+                    {
+                        SimpleLogger.Instance.Info("Restoring focus to EmulationStation...");
+                        FocusHelper.BringProcessWindowToFront(exe, attempts: 5, delayMs: 250);
+                        break;
+                    }
+
+                    System.Threading.Thread.Sleep(300);
+                }
+            }
         }
 
         #region Apis
@@ -179,6 +188,12 @@ namespace RetroBat
 
         [DllImport("user32.dll")]
         static extern bool AllowSetForegroundWindow(int dwProcessId);
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        [DllImport("user32.dll")]
+        private static extern bool BringWindowToTop(IntPtr hWnd);
+        private const int SW_SHOW = 5;
 
         const int VK_LBUTTON = 0x01;
         const int VK_RBUTTON = 0x02;
@@ -207,29 +222,28 @@ namespace RetroBat
         private void ForceForeground()
         {
             IntPtr hWnd = this.Handle;
-            IntPtr foregroundWnd = GetForegroundWindow();
-            if (hWnd == foregroundWnd) return;
+            if (hWnd == IntPtr.Zero)
+                return;
 
-            uint targetThread = GetWindowThreadProcessId(hWnd, out _);
-            uint fgThread = GetWindowThreadProcessId(foregroundWnd, out _);
+            IntPtr fgWnd = GetForegroundWindow();
+            if (hWnd == fgWnd)
+                return;
+
+            uint fgThread = GetWindowThreadProcessId(fgWnd, out _);
             uint thisThread = GetCurrentThreadId();
 
-            AttachThreadInput(thisThread, targetThread, true);
+            // Temporarily attach input threads
             AttachThreadInput(thisThread, fgThread, true);
 
-            this.TopMost = true;
-            this.BringToFront();
+            ShowWindow(hWnd, SW_SHOW);
+            SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
             SetForegroundWindow(hWnd);
             SetActiveWindow(hWnd);
+            BringWindowToTop(hWnd);
 
-            AttachThreadInput(thisThread, targetThread, false);
+            // Detach
             AttachThreadInput(thisThread, fgThread, false);
-
-            if (GetForegroundWindow() != hWnd)
-            {
-                SimpleLogger.Instance.Warning("Failed to force foreground, applying TopMost trick.");
-                ToggleTopMost();
-            }
         }
 
         [DllImport("user32.dll", SetLastError = true)]
