@@ -8,7 +8,7 @@ namespace RetroBat
     internal class SplashVideo
     {
         private static Form _blackSplashForm;
-        public static void RunIntroVideo(RetroBatConfig config, string esPath, Screen targetScreen = null)
+        public static void RunIntroVideo(RetroBatConfig config, string esPath, Screen targetScreen = null, bool externalLauncher = false)
         {
             if (!config.EnableIntro)
                 return;
@@ -64,7 +64,7 @@ namespace RetroBat
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                using (var form = new VideoPlayerForm(videoFile, esPath, config.GamepadVideoKill, config.KillVideoWhenESReady, targetScreen))
+                using (var form = new VideoPlayerForm(videoFile, esPath, config.GamepadVideoKill, config.KillVideoWhenESReady, targetScreen, externalLauncher))
                 {
                     form.FormClosed += (s, e) =>
                     {
@@ -106,6 +106,16 @@ namespace RetroBat
                     ShowInTaskbar = false
                 };
 
+                _blackSplashForm.Load += (s, e) =>
+                {
+                    try
+                    {
+                        _blackSplashForm.Focus();
+                        _blackSplashForm.Activate();
+                    }
+                    catch { }
+                };
+
                 _blackSplashForm.Shown += (s, e) => splashDone.Set();
                 Application.Run(_blackSplashForm);
             });
@@ -132,6 +142,9 @@ namespace RetroBat
                         _blackSplashForm = null;
                     }));
                 }
+
+                for (int i = 0; i < 10 && _blackSplashForm != null; i++)
+                    Thread.Sleep(50);
             }
             catch { }
         }
