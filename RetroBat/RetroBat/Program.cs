@@ -284,7 +284,7 @@ namespace RetroBat
                 return;
 
             TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
-            if (config.Autostart != 0 && uptime.TotalSeconds < 10)
+            if (config.Autostart != 0 && uptime.TotalSeconds < 10 && config.AutoStartDelay > 0)
             {
                 SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a delay.");
                 int delay = config.AutoStartDelay;
