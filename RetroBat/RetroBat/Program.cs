@@ -375,10 +375,10 @@ namespace RetroBat
             else
                 config.Autostart = 0;
 
-            if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "AutoStartDelay", "1000"), out int startdelay))
+            if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "AutoStartDelay", "0"), out int startdelay))
                 config.AutoStartDelay = startdelay;
             else
-                config.AutoStartDelay = 1000;
+                config.AutoStartDelay = 0;
 
             if (int.TryParse(IniFile.GetOptionValue(ini, "EmulationStation", "FocusDelay", "2000"), out int FocusDelay))
                 config.FocusDelay = FocusDelay;
