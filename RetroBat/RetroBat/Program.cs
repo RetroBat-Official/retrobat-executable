@@ -284,7 +284,7 @@ namespace RetroBat
                 return;
 
             TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
-            if (config.Autostart != 0 && uptime.TotalSeconds < 10)
+            if (config.Autostart != 0 && uptime.TotalSeconds < 10 && config.AutoStartDelay > 0)
             {
                 SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a delay.");
                 int delay = config.AutoStartDelay;
@@ -375,10 +375,10 @@ namespace RetroBat
             else
                 config.Autostart = 0;
 
-            if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "AutoStartDelay", "1000"), out int startdelay))
+            if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "AutoStartDelay", "0"), out int startdelay))
                 config.AutoStartDelay = startdelay;
             else
-                config.AutoStartDelay = 1000;
+                config.AutoStartDelay = 0;
 
             if (int.TryParse(IniFile.GetOptionValue(ini, "EmulationStation", "FocusDelay", "2000"), out int FocusDelay))
                 config.FocusDelay = FocusDelay;
