@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Forms.Integration;
@@ -51,6 +52,7 @@ namespace RetroBat
             this.Width = 1280;
             this.Height = 768;
 #endif
+
             _elementHost = new ElementHost
             {
                 Dock = DockStyle.Fill
@@ -60,7 +62,9 @@ namespace RetroBat
             {
                 LoadedBehavior = MediaState.Manual,
                 UnloadedBehavior = MediaState.Manual,
-                Stretch = Stretch.UniformToFill,
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                VerticalAlignment = System.Windows.VerticalAlignment.Center,
                 Source = new Uri(videoPath, UriKind.Absolute)
             };
 
@@ -91,6 +95,8 @@ namespace RetroBat
                 this.Close();
             };
 
+            _elementHost.Dock = DockStyle.Fill;
+
             _elementHost.Child = _mediaElement;
             this.Controls.Add(_elementHost);
                      
@@ -98,6 +104,11 @@ namespace RetroBat
             {
                 try
                 {
+                    this.StartPosition = FormStartPosition.Manual;
+                    this.FormBorderStyle = FormBorderStyle.None;
+                    this.Bounds = screen.Bounds;
+                    this.WindowState = FormWindowState.Normal;
+
                     System.Threading.Thread.Sleep(100);
                     _mediaElement.Play();
                     SimpleLogger.Instance.Info("Video started.");

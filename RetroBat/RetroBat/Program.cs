@@ -293,7 +293,7 @@ namespace RetroBat
 
             try
             {
-                SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + args);
+                SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + elargs);
 
                 var exe = Process.Start(start);
                 if (exe == null)
