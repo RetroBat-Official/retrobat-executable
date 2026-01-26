@@ -196,151 +196,180 @@ namespace RetroBat
                 SimpleLogger.Instance.Info("Monitor index out of range or 0, using primary screen.");
             }
 
-            if (config.EnableIntro)
-            {
-                SplashVideo.ShowBlackSplash(targetScreen);
-                SplashVideo.RunIntroVideo(config, esPath, targetScreen, isExternalLauncher);
-                
-                if (!config.WaitForVideoEnd && !config.KillVideoWhenESReady)
-                    Thread.Sleep(config.VideoDelay);
-            }
-
-            // Arguments
-            SimpleLogger.Instance.Info("Setting up arguments to run EmulationStation.");
-            List<string> commandArray = new List<string>();
-
-            bool borderless = config.FullscreenBorderless;
-
-            if (config.Fullscreen && config.ForceFullscreenRes)
-            {
-                commandArray.Add("--resolution");
-                commandArray.Add(config.WindowXSize.ToString());
-                commandArray.Add(config.WindowYSize.ToString());
-            }
-
-            else if (!config.Fullscreen && !borderless)
-            {
-                commandArray.Add("--windowed");
-                commandArray.Add("--resolution");
-                commandArray.Add(config.WindowXSize.ToString());
-                commandArray.Add(config.WindowYSize.ToString());
-            }
-
-            else if (borderless)
-            {
-                commandArray.Add("--fullscreen-borderless");
-            }
-            else
-            {
-                commandArray.Add("--fullscreen");
-            }
-
-            if (config.GameListOnly)
-                commandArray.Add("--gamelist-only");
-
-            if (config.InterfaceMode == 2)
-                commandArray.Add("--force-kid");
-            else if (config.InterfaceMode == 1)
-                commandArray.Add("--force-kiosk");
-
-            if (config.MonitorIndex > 0)
-            {
-                commandArray.Add("--monitor");
-                commandArray.Add(config.MonitorIndex.ToString());
-            }
-
-            if (config.NoExitMenu)
-                commandArray.Add("--no-exit");
-
-            if (config.VSync)
-                commandArray.Add("--vsync 1");
-            else
-                commandArray.Add("--vsync 0");
-
-            if (config.DrawFramerate)
-                commandArray.Add("--draw-framerate");
-
-            commandArray.Add("--home");
-            commandArray.Add(esPath);
-
-            string elargs = string.Join(" ", commandArray.Select(a => a.Contains(" ") ? "\"" + a + "\"" : a));
-
-            // Run wiimoteGun if enabled
-            if (config.WiimoteGun)
-                RunWiimoteGun(esPath);
-
-            // Run EmulationStation
-            SimpleLogger.Instance.Info("Preparing to run emulationstation.");
-
-            var start = new ProcessStartInfo()
-            {
-                FileName = emulationStationExe,
-                WorkingDirectory = esPath,
-                Arguments = elargs,
-                UseShellExecute = false
-            };
-
-            if (start == null)
-                return;
-
-            TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
-            if (config.Autostart != 0 && uptime.TotalSeconds < 10 && config.AutoStartDelay > 0)
-            {
-                SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a delay.");
-                int delay = config.AutoStartDelay;
-                System.Threading.Thread.Sleep(delay);
-            }
+            bool canRunIntro = SplashVideo.CanRunIntroVideo(config, esPath);
 
             try
             {
-                SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + elargs);
-
-                var exe = Process.Start(start);
-                if (exe == null)
+                if (canRunIntro)
                 {
-                    SimpleLogger.Instance.Error("Failed to start EmulationStation process.");
-                    return;
+                    SplashVideo.ShowBlackSplash(targetScreen);
+                    SplashVideo.RunIntroVideo(config, esPath, targetScreen);
+
+                    if (!config.WaitForVideoEnd && !config.KillVideoWhenESReady && config.VideoDelay > 0)
+                    {
+                        Thread.Sleep(config.VideoDelay);
+                    }
                 }
 
-                int maxWaitMs = 10000;
-                int intervalMs = 50;
-                int waited = 0;
+                // Arguments
+                SimpleLogger.Instance.Info("Setting up arguments to run EmulationStation.");
+                List<string> commandArray = new List<string>();
 
-                IntPtr esHandle = IntPtr.Zero;
+                bool borderless = config.FullscreenBorderless;
 
-                SimpleLogger.Instance.Info("Waiting for EmulationStation main window…");
-                while (!exe.HasExited && esHandle == IntPtr.Zero && waited < maxWaitMs)
+                if (config.Fullscreen && config.ForceFullscreenRes)
                 {
-                    Thread.Sleep(intervalMs);
-                    waited += intervalMs;
-                    exe.Refresh();
-                    esHandle = exe.MainWindowHandle;
-
-                    if (waited % 1000 == 0)
-                        SimpleLogger.Instance.Info($"…still waiting ({waited / 1000}s)");
+                    commandArray.Add("--resolution");
+                    commandArray.Add(config.WindowXSize.ToString());
+                    commandArray.Add(config.WindowYSize.ToString());
                 }
 
-                SplashVideo.CloseBlackSplash();
-                Thread.Sleep(300);
-                if (!isExternalLauncher)
-                    FocusHelper.BringProcessWindowToFront(exe);
-
-                if (!exe.HasExited && !isExternalLauncher && config.FocusDelay > 0)
+                else if (!config.Fullscreen && !borderless)
                 {
-                    Thread.Sleep(config.FocusDelay);
-                    FocusHelper.BringProcessWindowToFront(exe);
+                    commandArray.Add("--windowed");
+                    commandArray.Add("--resolution");
+                    commandArray.Add(config.WindowXSize.ToString());
+                    commandArray.Add(config.WindowYSize.ToString());
+                }
+
+                else if (borderless)
+                {
+                    commandArray.Add("--fullscreen-borderless");
                 }
                 else
                 {
-                    if (exe.HasExited)
-                        SimpleLogger.Instance.Error("EmulationStation process exited before creating a window.");
+                    commandArray.Add("--fullscreen");
+                }
+
+                if (config.GameListOnly)
+                    commandArray.Add("--gamelist-only");
+
+                if (config.InterfaceMode == 2)
+                    commandArray.Add("--force-kid");
+                else if (config.InterfaceMode == 1)
+                    commandArray.Add("--force-kiosk");
+
+                if (config.MonitorIndex > 0)
+                {
+                    commandArray.Add("--monitor");
+                    commandArray.Add(config.MonitorIndex.ToString());
+                }
+
+                if (config.NoExitMenu)
+                    commandArray.Add("--no-exit");
+
+                if (config.VSync)
+                    commandArray.Add("--vsync 1");
+                else
+                    commandArray.Add("--vsync 0");
+
+                if (config.DrawFramerate)
+                    commandArray.Add("--draw-framerate");
+
+                commandArray.Add("--home");
+                commandArray.Add(esPath);
+
+                string elargs = string.Join(" ", commandArray.Select(a => a.Contains(" ") ? "\"" + a + "\"" : a));
+
+                // Run wiimoteGun if enabled
+                if (config.WiimoteGun)
+                    RunWiimoteGun(esPath);
+
+                // Run EmulationStation
+                SimpleLogger.Instance.Info("Preparing to run emulationstation.");
+
+                var start = new ProcessStartInfo()
+                {
+                    FileName = emulationStationExe,
+                    WorkingDirectory = esPath,
+                    Arguments = elargs,
+                    UseShellExecute = false
+                };
+
+                if (start == null)
+                    return;
+
+                TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
+                if (config.Autostart != 0 && uptime.TotalSeconds < 10 && config.AutoStartDelay > 0)
+                {
+                    SimpleLogger.Instance.Info("RetroBat set to run at startup, adding a delay.");
+                    int delay = config.AutoStartDelay;
+                    System.Threading.Thread.Sleep(delay);
+                }
+
+                try
+                {
+                    SimpleLogger.Instance.Info("Launching " + emulationStationExe + " " + elargs);
+
+                    var exe = Process.Start(start);
+                    if (exe == null)
+                    {
+                        SimpleLogger.Instance.Error("Failed to start EmulationStation process.");
+                        return;
+                    }
+
+                    int maxWaitMs = 10000;
+                    int intervalMs = 50;
+                    int waited = 0;
+
+                    IntPtr esHandle = IntPtr.Zero;
+
+                    SimpleLogger.Instance.Info("Waiting for EmulationStation main window…");
+                    while (!exe.HasExited && esHandle == IntPtr.Zero && waited < maxWaitMs)
+                    {
+                        Thread.Sleep(intervalMs);
+                        waited += intervalMs;
+                        exe.Refresh();
+                        esHandle = exe.MainWindowHandle;
+
+                        if (waited % 1000 == 0)
+                            SimpleLogger.Instance.Info($"…still waiting ({waited / 1000}s)");
+                    }
+
+                    if (esHandle == IntPtr.Zero)
+                    {
+                        SimpleLogger.Instance.Warning("EmulationStation window handle not detected (likely exclusive fullscreen). Skipping focus.");
+                    }
+
+                    if (esHandle != IntPtr.Zero && !isExternalLauncher)
+                    {
+                        FocusHelper.BringProcessWindowToFront(exe);
+
+                        if (config.FocusDelay > 0)
+                        {
+                            Thread.Sleep(config.FocusDelay);
+                            FocusHelper.BringProcessWindowToFront(exe);
+                        }
+                    }
+
+                    SplashVideo.CloseBlackSplash();
+                    Thread.Sleep(300);
+
+                    if (!isExternalLauncher)
+                        FocusHelper.BringProcessWindowToFront(exe);
+
+                    if (!exe.HasExited && !isExternalLauncher && config.FocusDelay > 0)
+                    {
+                        Thread.Sleep(config.FocusDelay);
+                        FocusHelper.BringProcessWindowToFront(exe);
+                    }
                     else
-                        SimpleLogger.Instance.Warning("EmulationStation process is running but no main window detected.");
+                    {
+                        if (exe.HasExited)
+                            SimpleLogger.Instance.Error("EmulationStation process exited before creating a window.");
+                        else
+                            SimpleLogger.Instance.Warning("EmulationStation process is running but no main window detected.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    SimpleLogger.Instance.Warning("Failed to start EmulationStation: " + ex.Message);
                 }
             }
-            catch (Exception ex)
+
+            finally
             {
-                SimpleLogger.Instance.Warning("Failed to start EmulationStation: " + ex.Message);
+                SplashVideo.CloseBlackSplash();
             }
 
             SimpleLogger.Instance.Info("All is good, enjoy, quitting RetroBat launcher.");

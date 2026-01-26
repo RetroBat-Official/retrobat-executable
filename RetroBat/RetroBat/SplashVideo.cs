@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -8,8 +9,34 @@ namespace RetroBat
     internal class SplashVideo
     {
         private static Form _blackSplashForm;
+
+        public static bool CanRunIntroVideo(RetroBatConfig config, string esPath)
+        {
+            try
+            {
+                if (!config.EnableIntro)
+                    return false;
+
+                string videoPath = Path.Combine(esPath, ".emulationstation", "video");
+
+                if (!string.IsNullOrEmpty(config.FilePath) && config.FilePath != "default")
+                    videoPath = config.FilePath;
+
+                if (!Directory.Exists(videoPath))
+                    return false;
+
+                return Directory.EnumerateFiles(videoPath, "*.mp4", SearchOption.AllDirectories).Any();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public static void RunIntroVideo(RetroBatConfig config, string esPath, Screen targetScreen = null, bool externalLauncher = false)
         {
+            bool canRunIntro = SplashVideo.CanRunIntroVideo(config, esPath);
+
             if (!config.EnableIntro)
                 return;
 
@@ -117,6 +144,20 @@ namespace RetroBat
                 };
 
                 _blackSplashForm.Shown += (s, e) => splashDone.Set();
+                
+                var watchdog = new System.Windows.Forms.Timer();
+                watchdog.Interval = 15000; // 15 secondes max
+                watchdog.Tick += (s, e) =>
+                {
+                    try
+                    {
+                        watchdog.Stop();
+                        _blackSplashForm?.Close();
+                    }
+                    catch { }
+                };
+                watchdog.Start();
+
                 Application.Run(_blackSplashForm);
             });
 
@@ -129,24 +170,30 @@ namespace RetroBat
 
         public static void CloseBlackSplash()
         {
-            if (_blackSplashForm == null || _blackSplashForm.IsDisposed)
-                return;
-
             try
             {
-                if (_blackSplashForm.IsHandleCreated)
+                var form = _blackSplashForm;
+                if (form == null || form.IsDisposed)
+                    return;
+
+                if (form.InvokeRequired)
                 {
-                    _blackSplashForm.BeginInvoke(new Action(() =>
+                    form.Invoke(new Action(() =>
                     {
-                        _blackSplashForm.Close();
-                        _blackSplashForm = null;
+                        form.FormClosed += (s, e) => _blackSplashForm = null;
+                        form.Close();
                     }));
                 }
-
-                for (int i = 0; i < 10 && _blackSplashForm != null; i++)
-                    Thread.Sleep(50);
+                else
+                {
+                    form.FormClosed += (s, e) => _blackSplashForm = null;
+                    form.Close();
+                }
             }
-            catch { }
+            catch
+            {
+                _blackSplashForm = null;
+            }
         }
     }
 }
