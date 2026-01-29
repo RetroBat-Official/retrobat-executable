@@ -82,25 +82,64 @@ namespace RetroBat
             // Check existence of required files
             SimpleLogger.Instance.Info("Checking availability of necessary files.");
             string templatepathES = Path.Combine(appFolder, "system", "templates", "emulationstation");
+            string versionInfoFile = Path.Combine(appFolder, "system", "version.info");
 
+            // version.info in ES folder
+            if (!File.Exists(Path.Combine(esPath, "version.info")))
+                try { File.Copy(versionInfoFile, Path.Combine(esPath, "version.info"), true); } catch { }
+
+            // about.info in ES folder
+            if (!File.Exists(Path.Combine(esPath, "about.info")))
+            {
+                SimpleLogger.Instance.Warning("Creating file 'about.info'");
+                try { File.WriteAllText(Path.Combine(esPath, "about.info"), "RETROBAT"); } catch { SimpleLogger.Instance.Warning("Impossible to create about.info file."); }
+            }
+
+            // check that emulationstation exists
             if (!File.Exists(Path.Combine(esPath, "emulationstation.exe")))
             {
                 SimpleLogger.Instance.Error("EmulationStation cannot be found at: " + Path.Combine(esPath, "emulationstation.exe"));
                 throw new FileNotFoundException("EmulationStation executable not found.");
             }
 
+            // check that emulatorlauncher exists
             if (!File.Exists(Path.Combine(esPath, "emulatorlauncher.exe")))
             {
                 SimpleLogger.Instance.Error("EmulatorLauncher cannot be found at: " + Path.Combine(esPath, "emulatorlauncher.exe"));
                 throw new FileNotFoundException("EmulatorLauncher executable not found.");
             }
 
+            // check that batocera-store exists
+            if (!File.Exists(Path.Combine(esPath, "batocera-store.exe")))
+                SimpleLogger.Instance.Warning("Batocera-store executable not found, continuing without it.");
+
+            // check that batocera-systems exists
+            if (!File.Exists(Path.Combine(esPath, "batocera-systems.exe")))
+                SimpleLogger.Instance.Warning("Batocera-systems executable not found, continuing without it.");
+
+            // check that es-update exists
+            if (!File.Exists(Path.Combine(esPath, "es-update.exe")))
+                SimpleLogger.Instance.Warning("es-update executable not found, continuing without it.");
+
+            // check that es-checkversion exists
+            if (!File.Exists(Path.Combine(esPath, "es-checkversion.exe")))
+                SimpleLogger.Instance.Warning("es-checkversion executable not found, continuing without it.");
+
+            // check that emulatorlauncher-common dll exists
+            if (!File.Exists(Path.Combine(esPath, "EmulatorLauncher.Common.dll")))
+            {
+                SimpleLogger.Instance.Error("emulatorlauncher common DLL does not exist");
+                throw new FileNotFoundException("emulatorlauncher common DLL not found.");
+            }
+
+            // check that es_features exists
             if (!File.Exists(Path.Combine(esPath, ".emulationstation", "es_features.cfg")))
             {
                 SimpleLogger.Instance.Error("es_features cannot be found at: " + Path.Combine(esPath, ".emulationstation", "es_features.cfg"));
                 throw new FileNotFoundException("es_features not found.");
             }
 
+            // check that es_settings exists
             if (!File.Exists(Path.Combine(esPath, ".emulationstation", "es_systems.cfg")))
             {
                 SimpleLogger.Instance.Warning("es_systems cannot be found, trying to copy template.");
@@ -114,6 +153,7 @@ namespace RetroBat
                 }
             }
 
+            // check that emulatorlauncher.cfg exists
             if (!File.Exists(Path.Combine(esPath, "emulatorLauncher.cfg")))
             {
                 SimpleLogger.Instance.Warning("emulatorLauncher.cfg cannot be found, trying to copy template.");
