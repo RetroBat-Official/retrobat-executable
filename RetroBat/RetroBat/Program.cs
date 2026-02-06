@@ -47,12 +47,13 @@ namespace RetroBat
             SimpleLogger.Instance.Info("--------------------------------------------------------------");
 
             string actualPath = Process.GetCurrentProcess().MainModule.FileName;
-            string expectedPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RetroBat.exe");
+            string expectedExeName = "RetroBat.exe";
+            string actualExeName = Path.GetFileName(actualPath);
 
-            SimpleLogger.Instance.Info("Actual path launched: " + actualPath);
-            SimpleLogger.Instance.Info("Expected Path: " + expectedPath);
+            SimpleLogger.Instance.Info("Actual executable name: " + actualExeName);
+            SimpleLogger.Instance.Info("Expected Name: " + expectedExeName);
 
-            if (!string.Equals(actualPath, expectedPath, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(expectedExeName, actualExeName, StringComparison.OrdinalIgnoreCase))
             {
                 MessageBox.Show("Executable name has been changed!", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
