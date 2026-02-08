@@ -97,6 +97,9 @@ FullscreenBorderless=1
 ; Force the fullscreen resolution with the parameters set at WindowXSize and WindowYSize.
 ForceFullscreenRes=0
 
+; Select EmulationStation theme randomly.
+RandomTheme=0
+
 ; Force to retry to get focus after a certain amount of time (milliseconds).
 FocusDelay=2000
 
@@ -671,6 +674,7 @@ DrawFramerate=0";
         public bool NoExitMenu { get; set; }
         public bool OpenGL2_1 { get; set;}
         public bool VSync { get; set; }
+        public bool RandomTheme { get; set; }
         public bool DrawFramerate { get; set; }
         public int WindowXSize { get; set; }
         public int WindowYSize { get; set; }

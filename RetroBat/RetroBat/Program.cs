@@ -12,6 +12,7 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Xml;
 using System.Xml.Linq;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 
 namespace RetroBat
 {
@@ -198,6 +199,9 @@ namespace RetroBat
 
             // Set old OpenGL
             SetGLVersion(esPath, config.OpenGL2_1);
+
+            // Set theme to random if enabled
+            SetRandomTheme(esPath, config.RandomTheme);
 
             // Set RetroBat to start at startup
             CleanupStartup();
@@ -436,6 +440,7 @@ namespace RetroBat
                 OpenGL2_1 = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "OpenGL2_1", "false")),
                 VSync = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "VSync", "true")),
                 DrawFramerate = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "DrawFramerate", "false")),
+                RandomTheme = GetOptBoolean(IniFile.GetOptionValue(ini, "EmulationStation", "RandomTheme", "false"))
             };
 
             if (int.TryParse(IniFile.GetOptionValue(ini, "RetroBat", "Autostart", "0"), out int Autostart))
@@ -763,6 +768,59 @@ namespace RetroBat
                 xml.Save(esSettingsPath);
             }
             catch (Exception ex) { SimpleLogger.Instance.Warning("Could not update EmulationStation renderer: " + ex.Message); }
+        }
+
+        private static readonly Random _rand = new Random();
+
+        private static void SetRandomTheme(string esPath, bool randomTheme)
+        {
+            if (!randomTheme)
+                return;
+
+            bool updated = false;
+
+            string esSettingsPath = Path.Combine(esPath, ".emulationstation", "es_settings.cfg");
+            if (!File.Exists(esSettingsPath))
+            {
+                SimpleLogger.Instance.Error("es_settings.cfg cannot be found at: " + esSettingsPath);
+                throw new FileNotFoundException("es_settings.cfg not found.");
+            }
+            else
+                SimpleLogger.Instance.Info("es_settings.cfg path: " + esSettingsPath);
+
+            try
+            {
+                XmlDocument xml = new XmlDocument();
+                xml.Load(esSettingsPath);
+                XmlNode Theme = xml.SelectSingleNode("//string[@name='ThemeSet']");
+
+                if (Theme != null && Theme.Attributes != null)
+                {
+                    string currentTheme = Theme.Attributes["value"]?.Value;
+                    string themesPath = Path.Combine(esPath, ".emulationstation", "themes");
+
+                    if (Directory.Exists(themesPath))
+                    {
+                        var themeDirs = Directory.GetDirectories(themesPath);
+                        var candidates = themeDirs.Select(Path.GetFileName).Where(t => !string.Equals(t, currentTheme, StringComparison.OrdinalIgnoreCase)).ToArray();
+                        
+                        if (candidates.Length > 0)
+                        {
+                            string randomThemeName = candidates[_rand.Next(candidates.Length)];
+                            SimpleLogger.Instance.Info("es_settings.cfg, setting random theme: " + randomThemeName);
+                            Theme.Attributes["value"].Value = randomThemeName;
+                            updated = true;
+                        }
+                        else
+                            SimpleLogger.Instance.Warning("No themes found in themes directory.");
+                    }
+                    else
+                        SimpleLogger.Instance.Warning("Themes directory not found at: " + themesPath);
+                }
+                if (updated)
+                    xml.Save(esSettingsPath);
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Could not update EmulationStation theme: " + ex.Message); }
         }
     }
 }
