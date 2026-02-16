@@ -14,9 +14,11 @@ namespace RetroBat
 
             string registryPath = @"SOFTWARE\RetroBat";
             string ftpPath = "InstallRootUrl";
+            string ftpPathNew = "InstallRootUrlNew";
             string installPath = "LatestKnownInstallPath";
 
             string urlValue = "http://www.retrobat.ovh/repo/win64";
+            string urlValueNew = "http://www.retrobat.org/repo/win64";
 
             using (RegistryKey registryKey = Registry.CurrentUser.CreateSubKey(registryPath))
             {
@@ -27,6 +29,15 @@ namespace RetroBat
                     string currentFTPPath = registryKey.GetValue(ftpPath).ToString();
                     if (currentFTPPath != urlValue)
                         registryKey.SetValue(ftpPath, urlValue);
+                }
+
+                if (registryKey.GetValue(ftpPathNew) == null)
+                    registryKey.SetValue(ftpPathNew, urlValueNew);
+                else
+                {
+                    string currentFTPPathNew = registryKey.GetValue(ftpPathNew).ToString();
+                    if (currentFTPPathNew != urlValueNew)
+                        registryKey.SetValue(ftpPathNew, urlValueNew);
                 }
 
                 if (registryKey.GetValue(installPath) == null)
