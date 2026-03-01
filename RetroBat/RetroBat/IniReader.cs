@@ -32,6 +32,11 @@ namespace RetroBat
 
             if (!string.IsNullOrEmpty(value))
                 return value.Trim('"');
+            else if (value == null)
+            {
+                ini.WriteValue(section, key, defaultValue);
+                return defaultValue;
+            }
             else
                 return defaultValue;
         }
