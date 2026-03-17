@@ -242,11 +242,27 @@ namespace RetroBat
                 if (canRunIntro)
                 {
                     SplashVideo.ShowBlackSplash(targetScreen);
-                    SplashVideo.RunIntroVideo(config, esPath, targetScreen);
+                    var splashStart = DateTime.UtcNow;
 
-                    if (!config.WaitForVideoEnd && !config.KillVideoWhenESReady && config.VideoDelay > 0)
+                    var videoDone = SplashVideo.RunIntroVideo(config, esPath, targetScreen);
+
+                    // Wait depending on mode
+                    if (config.WaitForVideoEnd)
                     {
-                        Thread.Sleep(config.VideoDelay);
+                        videoDone.WaitOne();
+                    }
+                    else if (config.VideoDelay > 0)
+                    {
+                        videoDone.WaitOne(config.VideoDelay);
+                    }
+
+                    // Ensure total splash duration >= VideoDelay
+                    int elapsed = (int)(DateTime.UtcNow - splashStart).TotalMilliseconds;
+                    int remaining = config.VideoDelay - elapsed;
+
+                    if (remaining > 0)
+                    {
+                        Thread.Sleep(remaining);
                     }
                 }
 
