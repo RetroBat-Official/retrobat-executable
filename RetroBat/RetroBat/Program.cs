@@ -84,49 +84,45 @@ namespace RetroBat
             string templatepathES = Path.Combine(appFolder, "system", "templates", "emulationstation");
             string versionInfoFile = Path.Combine(appFolder, "system", "version.info");
 
-            // version.info in ES folder
-            if (!File.Exists(Path.Combine(esPath, "version.info")))
-                try { File.Copy(versionInfoFile, Path.Combine(esPath, "version.info"), true); } catch { }
+            // ES folder
+            var esFiles = new HashSet<string>(Directory.EnumerateFiles(esPath).Select(Path.GetFileName),StringComparer.OrdinalIgnoreCase);
 
-            // about.info in ES folder
-            if (!File.Exists(Path.Combine(esPath, "about.info")))
+            // about.info
+            if (!esFiles.Contains("about.info"))
             {
                 SimpleLogger.Instance.Warning("Creating file 'about.info'");
-                try { File.WriteAllText(Path.Combine(esPath, "about.info"), "RETROBAT"); } catch { SimpleLogger.Instance.Warning("Impossible to create about.info file."); }
+                try { File.WriteAllText(Path.Combine(esPath, "about.info"), "RETROBAT"); }
+                catch { SimpleLogger.Instance.Warning("Impossible to create about.info file."); }
             }
 
-            // check that emulationstation exists
-            if (!File.Exists(Path.Combine(esPath, "emulationstation.exe")))
+            // emulationstation
+            if (!esFiles.Contains("emulationstation.exe"))
             {
                 SimpleLogger.Instance.Error("EmulationStation cannot be found at: " + Path.Combine(esPath, "emulationstation.exe"));
                 throw new FileNotFoundException("EmulationStation executable not found.");
             }
 
-            // check that emulatorlauncher exists
-            if (!File.Exists(Path.Combine(esPath, "emulatorlauncher.exe")))
+            // emulatorlauncher
+            if (!esFiles.Contains("emulatorlauncher.exe"))
             {
                 SimpleLogger.Instance.Error("EmulatorLauncher cannot be found at: " + Path.Combine(esPath, "emulatorlauncher.exe"));
                 throw new FileNotFoundException("EmulatorLauncher executable not found.");
             }
 
-            // check that batocera-store exists
-            if (!File.Exists(Path.Combine(esPath, "batocera-store.exe")))
+            // optional
+            if (!esFiles.Contains("batocera-store.exe"))
                 SimpleLogger.Instance.Warning("Batocera-store executable not found, continuing without it.");
 
-            // check that batocera-systems exists
-            if (!File.Exists(Path.Combine(esPath, "batocera-systems.exe")))
+            if (!esFiles.Contains("batocera-systems.exe"))
                 SimpleLogger.Instance.Warning("Batocera-systems executable not found, continuing without it.");
 
-            // check that es-update exists
-            if (!File.Exists(Path.Combine(esPath, "es-update.exe")))
+            if (!esFiles.Contains("es-update.exe"))
                 SimpleLogger.Instance.Warning("es-update executable not found, continuing without it.");
 
-            // check that es-checkversion exists
-            if (!File.Exists(Path.Combine(esPath, "es-checkversion.exe")))
+            if (!esFiles.Contains("es-checkversion.exe"))
                 SimpleLogger.Instance.Warning("es-checkversion executable not found, continuing without it.");
 
-            // check that emulatorlauncher-common dll exists
-            if (!File.Exists(Path.Combine(esPath, "EmulatorLauncher.Common.dll")))
+            if (!esFiles.Contains("emulatorlauncher.common.dll"))
             {
                 SimpleLogger.Instance.Error("emulatorlauncher common DLL does not exist");
                 throw new FileNotFoundException("emulatorlauncher common DLL not found.");
@@ -246,11 +242,27 @@ namespace RetroBat
                 if (canRunIntro)
                 {
                     SplashVideo.ShowBlackSplash(targetScreen);
-                    SplashVideo.RunIntroVideo(config, esPath, targetScreen);
+                    var splashStart = DateTime.UtcNow;
 
-                    if (!config.WaitForVideoEnd && !config.KillVideoWhenESReady && config.VideoDelay > 0)
+                    var videoDone = SplashVideo.RunIntroVideo(config, esPath, targetScreen);
+
+                    // Wait depending on mode
+                    if (config.WaitForVideoEnd)
                     {
-                        Thread.Sleep(config.VideoDelay);
+                        videoDone.WaitOne();
+                    }
+                    else if (config.VideoDelay > 0)
+                    {
+                        videoDone.WaitOne(config.VideoDelay);
+                    }
+
+                    // Ensure total splash duration >= VideoDelay
+                    int elapsed = (int)(DateTime.UtcNow - splashStart).TotalMilliseconds;
+                    int remaining = config.VideoDelay - elapsed;
+
+                    if (remaining > 0)
+                    {
+                        Thread.Sleep(remaining);
                     }
                 }
 

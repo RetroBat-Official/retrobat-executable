@@ -33,12 +33,12 @@ namespace RetroBat
             }
         }
 
-        public static void RunIntroVideo(RetroBatConfig config, string esPath, Screen targetScreen = null, bool externalLauncher = false)
+        public static ManualResetEvent RunIntroVideo(RetroBatConfig config, string esPath, Screen targetScreen = null, bool externalLauncher = false)
         {
             bool canRunIntro = SplashVideo.CanRunIntroVideo(config, esPath);
 
             if (!config.EnableIntro)
-                return;
+                return CreateCompletedEvent();
 
             SimpleLogger.Instance.Info("Trying to run Intro Video.");
 
@@ -56,7 +56,7 @@ namespace RetroBat
             if (!Directory.Exists(videoPath))
             {
                 SimpleLogger.Instance.Warning("Video directory does not exist: " + videoPath);
-                return;
+                return CreateCompletedEvent();
             }
 
             string[] videoFiles = Directory.GetFiles(videoPath, "*.mp4", SearchOption.AllDirectories);
@@ -64,7 +64,7 @@ namespace RetroBat
             if (videoFiles.Length == 0)
             {
                 SimpleLogger.Instance.Warning("No video files found in: " + videoPath);
-                return;
+                return CreateCompletedEvent();
             }
 
             string videoFile = Path.Combine(videoPath, config.FileName);
@@ -80,7 +80,7 @@ namespace RetroBat
             if (!File.Exists(videoFile))
             {
                 SimpleLogger.Instance.Warning("Video file does not exist: " + videoFile);
-                return;
+                return CreateCompletedEvent();
             }
 
             SimpleLogger.Instance.Info("Video file to play: " + videoFile);
@@ -104,11 +104,15 @@ namespace RetroBat
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
 
-            if (config.WaitForVideoEnd)
-            {
-                videoDone.WaitOne();
-            }
+            return videoDone;
         }
+
+        private static ManualResetEvent CreateCompletedEvent()
+        {
+            var ev = new ManualResetEvent(true); // already signaled
+            return ev;
+        }
+
         public static void ShowBlackSplash(Screen targetScreen = null)
         {
             if (_blackSplashForm != null)
