@@ -304,7 +304,7 @@ namespace RetroBat
                 else if (config.InterfaceMode == 1)
                     commandArray.Add("--force-kiosk");
 
-                if (config.MonitorIndex > 0)
+                if (config.MonitorIndex > 0 && config.MonitorIndex < screens.Length)
                 {
                     commandArray.Add("--monitor");
                     commandArray.Add(config.MonitorIndex.ToString());
@@ -388,26 +388,17 @@ namespace RetroBat
 
                     if (esHandle != IntPtr.Zero && !isExternalLauncher)
                     {
-                        FocusHelper.BringProcessWindowToFront(exe);
+                        SplashVideo.CloseBlackSplash();
+                        Thread.Sleep(300);
 
                         if (config.FocusDelay > 0)
                         {
                             Thread.Sleep(config.FocusDelay);
-                            FocusHelper.BringProcessWindowToFront(exe);
                         }
-                    }
 
-                    SplashVideo.CloseBlackSplash();
-                    Thread.Sleep(300);
-
-                    if (!isExternalLauncher)
-                        FocusHelper.BringProcessWindowToFront(exe);
-
-                    if (!exe.HasExited && !isExternalLauncher && config.FocusDelay > 0)
-                    {
-                        Thread.Sleep(config.FocusDelay);
                         FocusHelper.BringProcessWindowToFront(exe);
                     }
+
                     else
                     {
                         if (exe.HasExited)
