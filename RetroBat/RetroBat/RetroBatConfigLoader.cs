@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace RetroBat
@@ -15,8 +16,17 @@ namespace RetroBat
                 config = GetConfigValues(ini);
 
                 foreach (PropertyInfo prop in config.GetType().GetProperties())
-                    try { SimpleLogger.Instance.Info($"{prop.Name} = {prop.GetValue(config, null)}"); }
+                {
+                    try
+                    {
+                        object value = prop.GetValue(config, null);
+                        if (value is List<string> list)
+                            value = string.Join(", ", list);
+
+                        SimpleLogger.Instance.Info($"{prop.Name} = {value}");
+                    }
                     catch (Exception ex) { SimpleLogger.Instance.Warning($"Failed to log config property '{prop.Name}': " + ex.Message); }
+                }
             }
 
             return config;
@@ -31,6 +41,7 @@ namespace RetroBat
                 Autostart = GetOptInt(ini, "RetroBat", "Autostart", 0),
                 AutoStartDelay = GetOptInt(ini, "RetroBat", "AutoStartDelay", 0),
                 WiimoteGun = GetOptBool(ini, "RetroBat", "WiimoteGun", false),
+                AppLaunchers = GetAppLauncherEntries(ini),
                 EnableIntro = GetOptBool(ini, "SplashScreen", "EnableIntro", true),
                 RandomVideo = GetOptBool(ini, "SplashScreen", "RandomVideo", true),
                 GamepadVideoKill = GetOptBool(ini, "SplashScreen", "GamepadVideoKill", true),
@@ -54,6 +65,26 @@ namespace RetroBat
                 WindowXSize = GetOptInt(ini, "EmulationStation", "WindowXSize", 1280),
                 WindowYSize = GetOptInt(ini, "EmulationStation", "WindowYSize", 720)
             };
+        }
+
+        private static List<string> GetAppLauncherEntries(IniFile ini)
+        {
+            var entries = new List<string>();
+
+            // Backward compatible: original unnumbered key
+            string first = ini.GetValue("RetroBat", "AppLauncher");
+            if (!string.IsNullOrWhiteSpace(first))
+                entries.Add(first.Trim());
+
+            // Additional apps: AppLauncher2, AppLauncher3, ...
+            for (int i = 2; i <= 20; i++)
+            {
+                string value = ini.GetValue("RetroBat", "AppLauncher" + i);
+                if (!string.IsNullOrWhiteSpace(value))
+                    entries.Add(value.Trim());
+            }
+
+            return entries;
         }
 
         private static bool GetOptBool(IniFile ini, string section, string key, bool defaultValue)

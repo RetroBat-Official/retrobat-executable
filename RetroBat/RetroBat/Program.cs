@@ -81,6 +81,9 @@ namespace RetroBat
             // Get values from ini file
             RetroBatConfig config = RetroBatConfigLoader.Load(iniPath);
 
+            // Launch companion apps as early as possible, in parallel with the rest of the startup sequence
+            EmulationStationLauncher.RunExternalApps(config.AppLaunchers);
+
             // Get emulationstation.exe path
             string emulationStationExe = Path.Combine(esPath, "emulationstation.exe");
 

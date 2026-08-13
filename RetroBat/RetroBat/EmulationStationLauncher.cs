@@ -97,6 +97,63 @@ namespace RetroBat
             catch (Exception ex) { SimpleLogger.Instance.Warning("Failed to start WiimoteGun: " + ex.Message); }
         }
 
+        /// <summary>Launches every configured companion app (AppLauncher, AppLauncher2... in retrobat.ini), if any, in parallel with EmulationStation. Fire-and-forget: does not wait for them to exit.</summary>
+        public static void RunExternalApps(IEnumerable<string> appLaunchers)
+        {
+            if (appLaunchers == null)
+                return;
+
+            foreach (var appLauncher in appLaunchers)
+                RunExternalApp(appLauncher);
+        }
+
+        /// <summary>Launches a single companion app entry. Append " -nowindow" to the ini value to start it hidden; otherwise it starts normally.</summary>
+        private static void RunExternalApp(string appLauncher)
+        {
+            if (string.IsNullOrWhiteSpace(appLauncher))
+                return;
+
+            string appPath = ParseAppLauncherPath(appLauncher, out bool noWindow);
+
+            if (string.IsNullOrWhiteSpace(appPath) || !File.Exists(appPath))
+            {
+                SimpleLogger.Instance.Warning("AppLauncher file not found at: " + appPath);
+                return;
+            }
+
+            SimpleLogger.Instance.Info("Starting external app: " + appPath + (noWindow ? " (no window)" : ""));
+
+            try
+            {
+                var appStart = new ProcessStartInfo
+                {
+                    FileName = appPath,
+                    WorkingDirectory = Path.GetDirectoryName(appPath),
+                    UseShellExecute = !noWindow,
+                    CreateNoWindow = noWindow
+                };
+
+                Process.Start(appStart);
+                SimpleLogger.Instance.Info("External app started successfully.");
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Failed to start external app: " + ex.Message); }
+        }
+
+        private static string ParseAppLauncherPath(string raw, out bool noWindow)
+        {
+            noWindow = false;
+            string value = raw.Trim();
+
+            const string flag = "-nowindow";
+            if (value.EndsWith(flag, StringComparison.OrdinalIgnoreCase))
+            {
+                value = value.Substring(0, value.Length - flag.Length).Trim();
+                noWindow = true;
+            }
+
+            return value.Trim('"');
+        }
+
         /// <summary>Starts EmulationStation and waits for/restores focus on its window. Returns false if the process failed to start.</summary>
         public static bool LaunchAndFocus(ProcessStartInfo start, RetroBatConfig config, bool isExternalLauncher)
         {

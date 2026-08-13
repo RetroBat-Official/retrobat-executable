@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -51,7 +51,7 @@ namespace RetroBat
 LanguageDetection=1
 
 ; At startup RetroBat will reset the default config files options of emulationstation and retrobat.ini.
-; Use at your own risk.
+; Use at your own risk.	
 ResetConfigMode=0
 
 ; Run automatically RetroBat at Windows startup (0=NO 1=STARTUP 2=REGISTRY).
@@ -62,6 +62,11 @@ AutoStartDelay=0
 
 ; Run WiimoteGun at RetroBat's startup. You can use your wiimote as a gun and navigate through EmulationStation.
 WiimoteGun=0
+
+; Path to an additional application to launch in parallel with RetroBat (.exe, .bat, .cmd...). Leave empty to disable. Use quotes if the path contains spaces.
+; Add -nowindow at the end to start it without a visible window (e.g. AppLauncher=""C:\tools\app.exe"" -nowindow). Without -nowindow, it starts normally.
+; To launch more than one application, add AppLauncher2, AppLauncher3, etc. with the same syntax.
+AppLauncher=
 
 [SplashScreen]
 
@@ -111,7 +116,7 @@ FocusDelay=2000
 ; The frontend will parse only the gamelist.xml files in roms directories to display available games.
 ; If files are added when this option is enabled, they will not appear in the gamelists of the frontend. The option must be enabled again to display new entries properly.
 GameListOnly=0
-
+ 
 ; 0 = run the frontend normally.
 ; 1 = run the frontend in kiosk mode.
 ; 2 = run the frontend in kid mode.
@@ -662,6 +667,7 @@ DrawFramerate=0";
         public int Autostart { get; set; }
         public int AutoStartDelay { get; set; }
         public bool WiimoteGun { get; set; }
+        public List<string> AppLaunchers { get; set; }
         public bool EnableIntro { get; set; }
         public string FileName { get; set; }
         public string FilePath { get; set; }
@@ -697,7 +703,7 @@ DrawFramerate=0";
     "--draw-framerate		display the framerate"
     "--no-exit			don't show the exit option in the menu"
     "--no-splash			don't show the splash screen"
-    "--debug				more logging, show console on Windows"
+    "--debug				more logging, show console on Windows"				
     "--windowed			not fullscreen, should be used with --resolution"
     "--vsync [1/on or 0/off]		turn vsync on or off (default is on)"
     "--max-vram [size]		Max VRAM to use in Mb before swapping. 0 for unlimited"
