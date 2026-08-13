@@ -144,7 +144,7 @@ namespace RetroBat
                         _blackSplashForm.Focus();
                         _blackSplashForm.Activate();
                     }
-                    catch { }
+                    catch (Exception ex) { SimpleLogger.Instance.Warning("Failed to focus/activate black splash form: " + ex.Message); }
                 };
 
                 _blackSplashForm.Shown += (s, e) => splashDone.Set();
@@ -158,7 +158,7 @@ namespace RetroBat
                         watchdog.Stop();
                         _blackSplashForm?.Close();
                     }
-                    catch { }
+                    catch (Exception ex) { SimpleLogger.Instance.Warning("Black splash watchdog failed to close form: " + ex.Message); }
                 };
                 watchdog.Start();
 

@@ -31,7 +31,7 @@ namespace RetroBat
             if (File.Exists(_path))
             {
                 try { File.Delete(_path); }
-                catch { }
+                catch (Exception ex) { SimpleLogger.Instance.Warning("Failed to delete stale emulationstation.ready file: " + ex.Message); }
             }
 
             var screen = targetScreen ?? Screen.PrimaryScreen;
