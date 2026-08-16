@@ -63,6 +63,11 @@ AutoStartDelay=0
 ; Run WiimoteGun at RetroBat's startup. You can use your wiimote as a gun and navigate through EmulationStation.
 WiimoteGun=0
 
+; Path to an additional application to launch in parallel with RetroBat (.exe, .bat, .cmd...). Leave empty to disable. Use quotes if the path contains spaces.
+; Add -nowindow at the end to start it without a visible window (e.g. AppLauncher=""C:\tools\app.exe"" -nowindow). Without -nowindow, it starts normally.
+; To launch more than one application, add AppLauncher2, AppLauncher3, etc. with the same syntax.
+AppLauncher=
+
 [SplashScreen]
 
 ; Set if video introduction is played before running the interface.
@@ -239,7 +244,8 @@ DrawFramerate=0";
             }
             catch (Exception ex)
             {
-                throw ex;
+                SimpleLogger.Instance.Error("[IniFile] Failed to parse ini file " + path, ex);
+                throw;
             }
         }
 
@@ -661,6 +667,7 @@ DrawFramerate=0";
         public int Autostart { get; set; }
         public int AutoStartDelay { get; set; }
         public bool WiimoteGun { get; set; }
+        public List<string> AppLaunchers { get; set; }
         public bool EnableIntro { get; set; }
         public string FileName { get; set; }
         public string FilePath { get; set; }
