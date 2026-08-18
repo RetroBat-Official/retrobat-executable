@@ -154,7 +154,7 @@ namespace RetroBat
             return value.Trim('"');
         }
 
-        /// <summary>Starts EmulationStation and waits for/restores focus on its window. Returns false if the process failed to start.</summary>
+        /// <summary>Starts EmulationStation and waits for/restores focus on its window. Returns false if the process failed to start (exe == null or an exception was thrown).</summary>
         public static bool LaunchAndFocus(ProcessStartInfo start, RetroBatConfig config, bool isExternalLauncher)
         {
             try
@@ -186,6 +186,11 @@ namespace RetroBat
                         SimpleLogger.Instance.Info($"…still waiting ({waited / 1000}s)");
                 }
 
+                // The wait loop above is bounded by maxWaitMs, so we always reach this point;
+                // close the splash here unconditionally instead of only on the success path,
+                // so it can never linger on screen if the window handle is never found.
+                SplashVideo.CloseBlackSplash();
+
                 if (esHandle == IntPtr.Zero)
                 {
                     SimpleLogger.Instance.Warning("EmulationStation window handle not detected (likely exclusive fullscreen). Skipping focus.");
@@ -193,7 +198,6 @@ namespace RetroBat
 
                 if (esHandle != IntPtr.Zero && !isExternalLauncher)
                 {
-                    SplashVideo.CloseBlackSplash();
                     Thread.Sleep(300);
 
                     if (config.FocusDelay > 0)
@@ -210,13 +214,21 @@ namespace RetroBat
                     else
                         SimpleLogger.Instance.Warning("EmulationStation process is running but no main window detected.");
                 }
+
+                return true;
             }
             catch (Exception ex)
             {
                 SimpleLogger.Instance.Warning("Failed to start EmulationStation: " + ex.Message);
+                return false;
             }
-
-            return true;
+            finally
+            {
+                // Safety net: guarantees the splash never stays up even if an exception is
+                // thrown before the loop above gets a chance to close it (SplashVideo.CloseBlackSplash
+                // is idempotent, so this is harmless on the normal success path too).
+                SplashVideo.CloseBlackSplash();
+            }
         }
     }
 }
