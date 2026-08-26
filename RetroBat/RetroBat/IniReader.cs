@@ -65,8 +65,9 @@ WiimoteGun=0
 
 ; Path to an additional application to launch in parallel with RetroBat (.exe, .bat, .cmd...). Leave empty to disable. Use quotes if the path contains spaces.
 ; Add -nowindow at the end to start it without a visible window (e.g. AppLauncher=""C:\tools\app.exe"" -nowindow). Without -nowindow, it starts normally.
-; To launch more than one application, add AppLauncher2, AppLauncher3, etc. with the same syntax.
-AppLauncher=
+; Up to 20 applications can be launched: fill in AppLauncher below, then add AppLauncher2, AppLauncher3... up to AppLauncher20.
+AppLauncher=""""
+AppLauncher2=""""
 
 [SplashScreen]
 

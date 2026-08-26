@@ -115,7 +115,13 @@ namespace RetroBat
 
             string appPath = ParseAppLauncherPath(appLauncher, out bool noWindow);
 
-            if (string.IsNullOrWhiteSpace(appPath) || !File.Exists(appPath))
+            // No path set. The shipped default is AppLauncher="" (empty = disabled), so this is the
+            // normal state of every default install and must stay silent, otherwise each boot would
+            // log a warning about a factory setting. A path that is set but wrong is reported below.
+            if (string.IsNullOrWhiteSpace(appPath))
+                return;
+
+            if (!File.Exists(appPath))
             {
                 SimpleLogger.Instance.Warning("AppLauncher file not found at: " + appPath);
                 return;

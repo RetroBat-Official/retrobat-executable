@@ -67,19 +67,23 @@ namespace RetroBat
             };
         }
 
+        /// <summary>Highest supported AppLauncher entry: AppLauncher, then AppLauncher2 up to AppLauncher{MaxAppLaunchers}. Keep the retrobat.ini comment in sync with this value.</summary>
+        private const int MaxAppLaunchers = 20;
+
         private static List<string> GetAppLauncherEntries(IniFile ini)
         {
             var entries = new List<string>();
 
-            // Backward compatible: original unnumbered key
-            string first = ini.GetValue("RetroBat", "AppLauncher");
-            if (!string.IsNullOrWhiteSpace(first))
-                entries.Add(first.Trim());
-
-            // Additional apps: AppLauncher2, AppLauncher3, ...
-            for (int i = 2; i <= 20; i++)
+            for (int i = 1; i <= MaxAppLaunchers; i++)
             {
-                string value = ini.GetValue("RetroBat", "AppLauncher" + i);
+                // The first entry uses the unnumbered "AppLauncher" key, then AppLauncher2, AppLauncher3...
+                string key = i == 1 ? "AppLauncher" : "AppLauncher" + i;
+
+                // Read with GetValue (not GetOptionValue) so that reading the configuration never
+                // modifies retrobat.ini: absent keys stay absent, and an empty value simply means
+                // the entry is disabled.
+                string value = ini.GetValue("RetroBat", key);
+
                 if (!string.IsNullOrWhiteSpace(value))
                     entries.Add(value.Trim());
             }
