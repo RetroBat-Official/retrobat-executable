@@ -143,6 +143,7 @@ namespace RetroBat
                     {
                         _blackSplashForm.Focus();
                         _blackSplashForm.Activate();
+                        FocusHelper.ToggleTopMost(_blackSplashForm.Handle);
                     }
                     catch (Exception ex) { SimpleLogger.Instance.Warning("Failed to focus/activate black splash form: " + ex.Message); }
                 };

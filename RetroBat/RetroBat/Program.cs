@@ -11,9 +11,20 @@ namespace RetroBat
 {
     class Program
     {
+        private static Mutex _singleInstanceMutex;
+
         [STAThread]
         static void Main(string[] args)
         {
+            // Refuse to start a second black splash / intro video sequence while a
+            // previous RetroBat.exe instance is still starting up
+            _singleInstanceMutex = new Mutex(true, "RetroBat_SingleInstance_Mutex", out bool isNewInstance);
+            if (!isNewInstance)
+            {
+                SimpleLogger.Instance.Warning("Another instance of RetroBat.exe is already starting up, exiting this one.");
+                return;
+            }
+
             var esProcess = Process.GetProcessesByName("emulationstation").FirstOrDefault();
             if (esProcess != null)
             {
