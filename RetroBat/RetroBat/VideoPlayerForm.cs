@@ -76,6 +76,7 @@ namespace RetroBat
                 SimpleLogger.Instance.Info("Media opened.");
                 this.Opacity = 1;
                 this.TopMost = true;
+                ToggleTopMost();
                 this.Activate();
                 this.BringToFront();
             };
@@ -113,6 +114,7 @@ namespace RetroBat
                     _mediaElement.Play();
                     SimpleLogger.Instance.Info("Video started.");
                     this.TopMost = true;
+                    ToggleTopMost();
                     this.Activate();
                     this.BringToFront();
                     _timer = new System.Windows.Forms.Timer() { Interval = 50 };
@@ -126,6 +128,7 @@ namespace RetroBat
             {
                 ForceForeground();
                 this.TopMost = true;
+                ToggleTopMost();
                 this.BringToFront();
             };
         }
