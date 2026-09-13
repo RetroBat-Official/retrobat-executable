@@ -69,6 +69,12 @@ WiimoteGun=0
 AppLauncher=""""
 AppLauncher2=""""
 
+; Reduce Windows interference while RetroBat is running (0=NO 1=NOTIFICATIONS 2=NOTIFICATIONS+DESKTOP).
+; 1 hides Windows notification popups, 2 also hides the taskbar and any open folder window.
+; Everything is put back as it was when RetroBat exits. With 1 or 2, RetroBat.exe stays in memory
+; during the whole session instead of quitting right after the frontend has started.
+DisableWindowsInterface=0
+
 [SplashScreen]
 
 ; Set if video introduction is played before running the interface.
@@ -691,6 +697,7 @@ DrawFramerate=0";
         public bool DrawFramerate { get; set; }
         public int WindowXSize { get; set; }
         public int WindowYSize { get; set; }
+        public int DisableWindowsInterface { get; set; }
     }
 
     /*

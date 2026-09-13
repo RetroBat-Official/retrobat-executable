@@ -21,7 +21,16 @@ namespace RetroBat
             _singleInstanceMutex = new Mutex(true, "RetroBat_SingleInstance_Mutex", out bool isNewInstance);
             if (!isNewInstance)
             {
-                SimpleLogger.Instance.Warning("Another instance of RetroBat.exe is already starting up, exiting this one.");
+                // With DisableWindowsInterface enabled, RetroBat.exe now lives for the whole session,
+                // so this branch is reached whenever the user starts RetroBat again while it is
+                // already running. Tell them instead of exiting silently.
+                SimpleLogger.Instance.Warning("Another instance of RetroBat.exe is already running, exiting this one.");
+                MessageBox.Show(
+                "RetroBat is already running.",
+                "RetroBat",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+                );
                 return;
             }
 
@@ -142,6 +151,8 @@ namespace RetroBat
 
             bool canRunIntro = SplashVideo.CanRunIntroVideo(config, esPath);
 
+            Process esInstance = null;
+
             try
             {
                 if (canRunIntro)
@@ -198,13 +209,32 @@ namespace RetroBat
                     Thread.Sleep(delay);
                 }
 
-                if (!EmulationStationLauncher.LaunchAndFocus(start, config, isExternalLauncher))
+                esInstance = EmulationStationLauncher.LaunchAndFocus(start, config, isExternalLauncher);
+                if (esInstance == null)
                     return;
             }
 
             finally
             {
                 SplashVideo.CloseBlackSplash();
+            }
+
+            // Windows interface handling. Applied only now, once the frontend is up and has been
+            // given the focus: closing the shell earlier would steal that focus back.
+            // When the setting is 0 (default), RetroBat.exe quits right away as it always did.
+            if (config.DisableWindowsInterface > 0)
+            {
+                try
+                {
+                    WindowsInterfaceManager.Apply(appFolder, config.DisableWindowsInterface);
+
+                    SimpleLogger.Instance.Info("Waiting for EmulationStation to exit before restoring Windows.");
+                    esInstance.WaitForExit();
+                }
+                finally
+                {
+                    WindowsInterfaceManager.Restore(appFolder);
+                }
             }
 
             SimpleLogger.Instance.Info("All is good, enjoy, quitting RetroBat launcher.");

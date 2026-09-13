@@ -41,6 +41,7 @@ namespace RetroBat
                 Autostart = GetOptInt(ini, "RetroBat", "Autostart", 0),
                 AutoStartDelay = GetOptInt(ini, "RetroBat", "AutoStartDelay", 0),
                 WiimoteGun = GetOptBool(ini, "RetroBat", "WiimoteGun", false),
+                DisableWindowsInterface = GetOptInt(ini, "RetroBat", "DisableWindowsInterface", 0),
                 AppLaunchers = GetAppLauncherEntries(ini),
                 EnableIntro = GetOptBool(ini, "SplashScreen", "EnableIntro", true),
                 RandomVideo = GetOptBool(ini, "SplashScreen", "RandomVideo", true),
