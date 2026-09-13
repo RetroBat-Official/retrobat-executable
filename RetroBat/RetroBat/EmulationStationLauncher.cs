@@ -161,7 +161,7 @@ namespace RetroBat
         }
 
         /// <summary>Starts EmulationStation and waits for/restores focus on its window. Returns false if the process failed to start (exe == null or an exception was thrown).</summary>
-        public static bool LaunchAndFocus(ProcessStartInfo start, RetroBatConfig config, bool isExternalLauncher)
+        public static Process LaunchAndFocus(ProcessStartInfo start, RetroBatConfig config, bool isExternalLauncher)
         {
             try
             {
@@ -171,7 +171,7 @@ namespace RetroBat
                 if (exe == null)
                 {
                     SimpleLogger.Instance.Error("Failed to start EmulationStation process.");
-                    return false;
+                    return null;
                 }
 
                 int maxWaitMs = 10000;
@@ -221,12 +221,12 @@ namespace RetroBat
                         SimpleLogger.Instance.Warning("EmulationStation process is running but no main window detected.");
                 }
 
-                return true;
+                return exe;
             }
             catch (Exception ex)
             {
                 SimpleLogger.Instance.Warning("Failed to start EmulationStation: " + ex.Message);
-                return false;
+                return null;
             }
             finally
             {

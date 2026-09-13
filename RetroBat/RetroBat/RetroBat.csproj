@@ -74,6 +74,7 @@
     <Compile Include="VideoPlayerForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="WindowsInterfaceManager.cs" />
     <Compile Include="XInput.cs" />
   </ItemGroup>
   <ItemGroup>
