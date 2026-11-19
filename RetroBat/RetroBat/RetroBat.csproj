@@ -64,6 +64,7 @@
     <Compile Include="EmulationStationSettings.cs" />
     <Compile Include="FocusHelper.cs" />
     <Compile Include="IniReader.cs" />
+    <Compile Include="KioskKeyboardLock.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RegistryTools.cs" />
