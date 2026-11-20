@@ -8,8 +8,13 @@ using Microsoft.Win32;
 namespace RetroBat
 {
     /// <summary>
-    /// Reduces Windows interference while EmulationStation is running: hides notification
-    /// toasts (mode 1) and also hides the Windows taskbars and any open folder window (mode 2).
+    /// Reduces Windows interference while EmulationStation is running.
+    /// Mode 1: notification toasts, accessibility shortcuts (Sticky / Filter / Toggle Keys) and
+    /// the Xbox button opening the Game Bar are turned off.
+    /// Mode 2: mode 1, plus the Windows taskbars and open folder windows are hidden and the
+    /// crash dialogs of Windows Error Reporting are not shown.
+    /// Mode 3 (arcade cabinet): mode 2, plus the Windows keys and exit shortcuts are blocked
+    /// (see KioskKeyboardLock).
     /// Windows are hidden, not closed: killing explorer.exe makes Windows restart it a few seconds
     /// later (Winlogon AutoRestartShell), and closing it gracefully is not reliable across Windows
     /// versions. Hiding costs nothing, keeps every tray icon and every open folder alive, needs no
@@ -30,6 +35,31 @@ namespace RetroBat
 
         // Second line of the sentinel file, present only when this session hid the shell windows.
         private const string ShellUiMarker = "SHELLUI";
+
+        // Next lines of the sentinel file: "KEY=previous value" for each setting changed by this session.
+        private const string StickyKeysKey = "STICKYKEYS";
+        private const string FilterKeysKey = "FILTERKEYS";
+        private const string ToggleKeysKey = "TOGGLEKEYS";
+        private const string GameBarKey = "GAMEBAR";
+        private const string ErrorReportingKey = "WERUI";
+
+        // Xbox button of the controller opening the Game Bar ("Open Xbox Game Bar using this button on a controller")
+        private const string GameBarRegKey = @"SOFTWARE\Microsoft\GameBar";
+        private const string GameBarValue = "UseNexusForGameBarEnabled";
+
+        // "... has stopped working" dialogs of Windows Error Reporting (crashes are still logged)
+        private const string ErrorReportingRegKey = @"SOFTWARE\Microsoft\Windows\Windows Error Reporting";
+        private const string ErrorReportingValue = "DontShowUI";
+
+        // SystemParametersInfo: accessibility features and their keyboard shortcut flag
+        private const uint SPI_GETFILTERKEYS = 0x0032;
+        private const uint SPI_SETFILTERKEYS = 0x0033;
+        private const uint SPI_GETTOGGLEKEYS = 0x0034;
+        private const uint SPI_SETTOGGLEKEYS = 0x0035;
+        private const uint SPI_GETSTICKYKEYS = 0x003A;
+        private const uint SPI_SETSTICKYKEYS = 0x003B;
+        private const uint FEATURE_ON = 0x00000001;     // SKF_STICKYKEYSON, FKF_FILTERKEYSON, TKF_TOGGLEKEYSON
+        private const uint HOTKEY_ACTIVE = 0x00000004;  // SKF_HOTKEYACTIVE, FKF_HOTKEYACTIVE, TKF_HOTKEYACTIVE
 
         // Main taskbar, then one window of the secondary class per additional monitor.
         private const string PrimaryTaskbarClass = "Shell_TrayWnd";
@@ -61,8 +91,36 @@ namespace RetroBat
         [DllImport("user32.dll")]
         private static extern bool IsWindowVisible(IntPtr hWnd);
 
+        // STICKYKEYS and TOGGLEKEYS share this layout (cbSize, dwFlags)
+        [StructLayout(LayoutKind.Sequential)]
+        private struct FLAGSPARAM
+        {
+            public uint cbSize;
+            public uint dwFlags;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct FILTERKEYS
+        {
+            public uint cbSize;
+            public uint dwFlags;
+            public uint iWaitMSec;
+            public uint iDelayMSec;
+            public uint iRepeatMSec;
+            public uint iBounceMSec;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SystemParametersInfo(uint uiAction, uint uiParam, ref FLAGSPARAM pvParam, uint fWinIni);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SystemParametersInfo(uint uiAction, uint uiParam, ref FILTERKEYS pvParam, uint fWinIni);
+
         private static string _previousToast;
         private static bool _shellUiHidden;
+
+        // Previous values of the other settings changed by this session (sentinel keys above)
+        private static readonly Dictionary<string, string> _previousSettings = new Dictionary<string, string>();
 
         // Exact windows hidden by this session, so that restoring never touches a window the user
         // had hidden by other means.
@@ -86,7 +144,7 @@ namespace RetroBat
                 SimpleLogger.Instance.Warning("Previous RetroBat session did not restore the Windows interface, recovering its saved state.");
 
                 bool shellUiWasHidden;
-                ReadSentinel(sentinel, out _previousToast, out shellUiWasHidden);
+                ReadSentinel(sentinel, out _previousToast, out shellUiWasHidden, _previousSettings);
 
                 // Put the windows back right away rather than at the end of this session: the user
                 // may well have set the option back to 1, and would otherwise spend the whole
@@ -101,14 +159,29 @@ namespace RetroBat
             else
                 _previousToast = ReadCurrentToastSetting();
 
-            WriteSentinel(sentinel, _previousToast, mode >= 2);
+            // Current values are read only when no recovered value exists: a recovered value is the
+            // real user value, the current one is the value forced by the previous session.
+            SaveCurrentSetting(StickyKeysKey, () => ReadFlags(SPI_GETSTICKYKEYS));
+            SaveCurrentSetting(FilterKeysKey, () => ReadFilterKeysFlags());
+            SaveCurrentSetting(ToggleKeysKey, () => ReadFlags(SPI_GETTOGGLEKEYS));
+            SaveCurrentSetting(GameBarKey, () => ReadDword(GameBarRegKey, GameBarValue));
+
+            if (mode >= 2)
+                SaveCurrentSetting(ErrorReportingKey, () => ReadDword(ErrorReportingRegKey, ErrorReportingValue));
+
+            WriteSentinel(sentinel, _previousToast, mode >= 2, _previousSettings);
 
             // Mode 2 includes mode 1 on purpose: with the taskbar hidden, notifications are still
             // displayed on top of the frontend, so they have to be turned off as well.
             DisableNotifications();
+            DisableAccessibilityShortcuts();
+            WriteDword(GameBarRegKey, GameBarValue, 0, "Game Bar controller button");
 
             if (mode >= 2)
+            {
                 HideShellUi();
+                WriteDword(ErrorReportingRegKey, ErrorReportingValue, 1, "crash dialogs");
+            }
         }
 
         /// <summary>Puts everything back. Safe to call even when Apply did nothing.</summary>
@@ -117,13 +190,15 @@ namespace RetroBat
             string sentinel = GetSentinelPath(appFolder);
 
             if (_previousToast == null && File.Exists(sentinel))
-                ReadSentinel(sentinel, out _previousToast, out _shellUiHidden);
+                ReadSentinel(sentinel, out _previousToast, out _shellUiHidden, _previousSettings);
 
             if (_shellUiHidden)
                 ShowShellUi();
 
             if (_previousToast != null)
                 RestoreNotifications(_previousToast);
+
+            RestoreSettings();
 
             try
             {
@@ -135,6 +210,7 @@ namespace RetroBat
             _previousToast = null;
             _shellUiHidden = false;
             _hiddenWindows.Clear();
+            _previousSettings.Clear();
         }
 
         private static string GetSentinelPath(string appFolder)
@@ -158,21 +234,28 @@ namespace RetroBat
             return AbsentMarker;
         }
 
-        private static void WriteSentinel(string sentinel, string previousToast, bool shellUiHidden)
+        private static void WriteSentinel(string sentinel, string previousToast, bool shellUiHidden, Dictionary<string, string> previousSettings)
         {
             try
             {
-                File.WriteAllLines(sentinel, shellUiHidden
-                    ? new[] { previousToast, ShellUiMarker }
-                    : new[] { previousToast });
+                var lines = new List<string> { previousToast };
+
+                if (shellUiHidden)
+                    lines.Add(ShellUiMarker);
+
+                foreach (var setting in previousSettings)
+                    lines.Add(setting.Key + "=" + setting.Value);
+
+                File.WriteAllLines(sentinel, lines.ToArray());
             }
             catch (Exception ex) { SimpleLogger.Instance.Warning("Could not write state file: " + ex.Message); }
         }
 
-        private static void ReadSentinel(string sentinel, out string previousToast, out bool shellUiHidden)
+        private static void ReadSentinel(string sentinel, out string previousToast, out bool shellUiHidden, Dictionary<string, string> previousSettings)
         {
             previousToast = AbsentMarker;
             shellUiHidden = false;
+            previousSettings.Clear();
 
             try
             {
@@ -181,9 +264,184 @@ namespace RetroBat
                 if (lines.Length > 0 && !string.IsNullOrWhiteSpace(lines[0]))
                     previousToast = lines[0].Trim();
 
-                shellUiHidden = lines.Length > 1 && string.Equals(lines[1].Trim(), ShellUiMarker, StringComparison.OrdinalIgnoreCase);
+                // Older state files only have the toast line and the optional shell marker
+                for (int i = 1; i < lines.Length; i++)
+                {
+                    string line = lines[i].Trim();
+
+                    if (string.Equals(line, ShellUiMarker, StringComparison.OrdinalIgnoreCase))
+                        shellUiHidden = true;
+                    else if (line.IndexOf('=') > 0)
+                        previousSettings[line.Substring(0, line.IndexOf('='))] = line.Substring(line.IndexOf('=') + 1);
+                }
             }
             catch (Exception ex) { SimpleLogger.Instance.Warning("Could not read state file: " + ex.Message); }
+        }
+
+        /// <summary>Keeps the value recovered from a previous session if any, otherwise saves the current one.</summary>
+        private static void SaveCurrentSetting(string key, Func<string> readCurrent)
+        {
+            if (_previousSettings.ContainsKey(key))
+                return;
+
+            string value = readCurrent();
+            if (value != null)
+                _previousSettings[key] = value;
+        }
+
+        private static void RestoreSettings()
+        {
+            string value;
+
+            if (_previousSettings.TryGetValue(StickyKeysKey, out value))
+                WriteFlags(SPI_GETSTICKYKEYS, SPI_SETSTICKYKEYS, value);
+
+            if (_previousSettings.TryGetValue(FilterKeysKey, out value))
+                WriteFilterKeysFlags(value);
+
+            if (_previousSettings.TryGetValue(ToggleKeysKey, out value))
+                WriteFlags(SPI_GETTOGGLEKEYS, SPI_SETTOGGLEKEYS, value);
+
+            if (_previousSettings.TryGetValue(GameBarKey, out value))
+                RestoreDword(GameBarRegKey, GameBarValue, value);
+
+            if (_previousSettings.TryGetValue(ErrorReportingKey, out value))
+                RestoreDword(ErrorReportingRegKey, ErrorReportingValue, value);
+
+            if (_previousSettings.Count > 0)
+                SimpleLogger.Instance.Info("Windows accessibility shortcuts, Game Bar button and crash dialogs settings restored.");
+        }
+
+        /// <summary>Turns off the keyboard shortcuts of Sticky Keys (Shift x5), Filter Keys (right Shift held)
+        /// and Toggle Keys (Num Lock held). Features already turned on by the user are left alone.
+        /// Not written to the user profile (no SPIF_UPDATEINIFILE): a log off also puts them back.</summary>
+        private static void DisableAccessibilityShortcuts()
+        {
+            string value;
+
+            if (_previousSettings.TryGetValue(StickyKeysKey, out value))
+                WriteFlags(SPI_GETSTICKYKEYS, SPI_SETSTICKYKEYS, WithoutHotkey(value));
+
+            if (_previousSettings.TryGetValue(FilterKeysKey, out value))
+                WriteFilterKeysFlags(WithoutHotkey(value));
+
+            if (_previousSettings.TryGetValue(ToggleKeysKey, out value))
+                WriteFlags(SPI_GETTOGGLEKEYS, SPI_SETTOGGLEKEYS, WithoutHotkey(value));
+
+            SimpleLogger.Instance.Info("Windows accessibility shortcuts disabled for this session.");
+        }
+
+        private static string WithoutHotkey(string flags)
+        {
+            uint value;
+            if (!uint.TryParse(flags, out value) || (value & FEATURE_ON) != 0)
+                return flags;
+
+            return (value & ~HOTKEY_ACTIVE).ToString();
+        }
+
+        private static string ReadFlags(uint getAction)
+        {
+            var param = new FLAGSPARAM { cbSize = (uint)Marshal.SizeOf(typeof(FLAGSPARAM)) };
+            if (SystemParametersInfo(getAction, param.cbSize, ref param, 0))
+                return param.dwFlags.ToString();
+
+            SimpleLogger.Instance.Warning("Could not read accessibility setting " + getAction + ".");
+            return null;
+        }
+
+        private static void WriteFlags(uint getAction, uint setAction, string flags)
+        {
+            uint value;
+            if (!uint.TryParse(flags, out value))
+                return;
+
+            var param = new FLAGSPARAM { cbSize = (uint)Marshal.SizeOf(typeof(FLAGSPARAM)) };
+            if (!SystemParametersInfo(getAction, param.cbSize, ref param, 0) || param.dwFlags == value)
+                return;
+
+            param.dwFlags = value;
+            if (!SystemParametersInfo(setAction, param.cbSize, ref param, 0))
+                SimpleLogger.Instance.Warning("Could not change accessibility setting " + setAction + ".");
+        }
+
+        private static string ReadFilterKeysFlags()
+        {
+            var param = new FILTERKEYS { cbSize = (uint)Marshal.SizeOf(typeof(FILTERKEYS)) };
+            if (SystemParametersInfo(SPI_GETFILTERKEYS, param.cbSize, ref param, 0))
+                return param.dwFlags.ToString();
+
+            SimpleLogger.Instance.Warning("Could not read Filter Keys setting.");
+            return null;
+        }
+
+        private static void WriteFilterKeysFlags(string flags)
+        {
+            uint value;
+            if (!uint.TryParse(flags, out value))
+                return;
+
+            var param = new FILTERKEYS { cbSize = (uint)Marshal.SizeOf(typeof(FILTERKEYS)) };
+            if (!SystemParametersInfo(SPI_GETFILTERKEYS, param.cbSize, ref param, 0) || param.dwFlags == value)
+                return;
+
+            param.dwFlags = value;
+            if (!SystemParametersInfo(SPI_SETFILTERKEYS, param.cbSize, ref param, 0))
+                SimpleLogger.Instance.Warning("Could not change Filter Keys setting.");
+        }
+
+        private static string ReadDword(string subKey, string valueName)
+        {
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(subKey))
+                {
+                    object value = key == null ? null : key.GetValue(valueName);
+                    if (value != null)
+                        return Convert.ToInt32(value).ToString();
+                }
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Could not read " + valueName + ": " + ex.Message); }
+
+            return AbsentMarker;
+        }
+
+        private static void WriteDword(string subKey, string valueName, int value, string label)
+        {
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(subKey))
+                    key.SetValue(valueName, value, RegistryValueKind.DWord);
+
+                SimpleLogger.Instance.Info("Windows " + label + " disabled for this session.");
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Could not change " + valueName + ": " + ex.Message); }
+        }
+
+        /// <summary>Puts a registry value back, or deletes it when it did not exist before.</summary>
+        private static void RestoreDword(string subKey, string valueName, string previous)
+        {
+            try
+            {
+                if (string.Equals(previous, AbsentMarker, StringComparison.OrdinalIgnoreCase))
+                {
+                    using (RegistryKey key = Registry.CurrentUser.OpenSubKey(subKey, true))
+                    {
+                        if (key != null)
+                            key.DeleteValue(valueName, false);
+                    }
+                }
+                else
+                {
+                    int value;
+                    if (!int.TryParse(previous, out value))
+                        return;
+
+                    using (RegistryKey key = Registry.CurrentUser.CreateSubKey(subKey))
+                        key.SetValue(valueName, value, RegistryValueKind.DWord);
+                }
+            }
+            catch (Exception ex) { SimpleLogger.Instance.Warning("Could not restore " + valueName + ": " + ex.Message); }
         }
 
         private static void DisableNotifications()

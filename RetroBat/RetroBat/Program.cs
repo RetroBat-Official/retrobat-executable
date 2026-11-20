@@ -229,7 +229,12 @@ namespace RetroBat
                     WindowsInterfaceManager.Apply(appFolder, config.DisableWindowsInterface);
 
                     SimpleLogger.Instance.Info("Waiting for EmulationStation to exit before restoring Windows.");
-                    esInstance.WaitForExit();
+
+                    // Mode 3 (arcade cabinet): Windows keys and exit shortcuts blocked until the frontend exits
+                    if (config.DisableWindowsInterface >= 3)
+                        KioskKeyboardLock.RunUntilExit(esInstance);
+                    else
+                        esInstance.WaitForExit();
                 }
                 finally
                 {
